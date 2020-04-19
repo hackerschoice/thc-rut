@@ -1,0 +1,36 @@
+1.2.5 (2003-05-30)
+ - ph-neutral relaese. Everyone is pretty drunken but I fixed
+   an ugly bug. First ip of ip range was always skipped.
+
+1.2.4 (2003-05-28)
+ - 'any' device support
+ - ported to OpenBSD.
+ - ported to FreeBSD (what a bitch!).
+ - integrated Libnet into the package
+ - new fingerprints (and fixed some wrong fp's).
+ - status bar (press space!)
+
+1.2.3 (2003-01-27)
+ - rewrote SNMP parsing
+ - new fingerprints
+
+1.2.2 (2003-01-01)
+ - Many more fingerprints
+ - fixed segfault, \0 overwrite in NVT mode
+
+1.2.1 (2002-12-29)
+ - infinite loop fix in hash table
+ - more fingerprints
+
+1.2 (2002-12-27)
+ - perl reg. expr.
+ - rewrite of the scheduler engine.
+
+0.4 (2001-08-18)
+ - unofficial release
+ - state idea implemented
+ - fingerprinter by banners
+
+0.3 (2001-xx-zz)
+ - first release
+

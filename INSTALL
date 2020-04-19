@@ -1,0 +1,16 @@
+$ ./configure && make all install
+
+It should compile fine on any decent unix version. I tested it on
+
+- Linux 2.4
+- OpenBSD
+- FreeBSD
+- Solaris 2.8
+
+It wont work on old unixes
+- Red Hat 6.2 (egcs problem that __func__ is not defined)
+
+feedback is welcome
+
+anonymous@segfault.net
+

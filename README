@@ -1,0 +1,214 @@
+THC-RUT - http://www.thc.org/thc-rut - anonymous@segfault.net
+
+                                            'When your mind is going hither
+                                            and thither, discrimiation will
+                                            never be brought to a conclustion.
+                                            With an intense, fresh and 
+                                            underlaying spirit, one will make
+                                            his judgments within the space of
+                                            seven breaths.
+                                            It is a matter of being determined
+                                            and having the spirit to break
+                                            right through to the other side.'
+                                            ...Hagakure, the way of the samurai
+                                            ...by Yamamoto Tsunetomo
+
+
+[0x01] What is THC-RUT:
+
+    RUT (aRe yoU There, pronouced as 'root') is your first knife on foreign
+    network. It gathers informations from local and remote networks.
+
+    It offers a wide range of network discovery tools: arp lookup on
+    an IP range, spoofed DHCP request, RARP, BOOTP, ICMP-ping, ICMP
+    address mask request, OS fingerprintings, high-speed host discovery, ...
+    
+    THC-RUT now comes with a new OS Fingerprint implementation. It gathers
+    tcp stack informations, banners, open/closed port characteristics and
+    timing values and tosses them through a perl regular expression matrix to
+    determine the OS with high accuracy.
+
+    The tool is capable of discovering a Class B network within 10 minutes.
+    Banner information are taken from (amoung others) SNMP replies,
+    telnetd (NVT) negotiation options, generic Banner Matching, HTTP-Server
+    version, DCE request and tcp options.
+
+    The homepage can be found at http://www.thc.org/thc-rut.
+
+[0x02] History of THC-RUT
+
+    THCrut has been rewritten and changed into a general local network
+    discovery tool.
+    
+    It comes with a new OS Fingerprinting technique and facilates in addition
+    to this nmap fingerprinting methods. The implementation requires less
+    memory and is faster on large networks (speaking of Class B or larger).
+
+    The first THC-RUT release has been written when the first wavelan AP'es
+    popped up. It's purpose was to brute force wvlan (IEEE 802.11b) access
+    points that used mac authentication. Time has passed since the early days
+    of wvlan hacking. Extensive research has been conducted and more
+    sophisticated tools are now available.
+
+[0x03] How to use
+
+    I dont feel like explaining how to use the tool. It's pretty much
+    straightforwards. Anyone with half a brain should be able to use
+    it - others dont have to.
+
+    Just the basics:
+
+    An IP range looks like this:
+    
+    192.168.0.1-192.168.255.254      # 2^16-2 hosts (Class B)
+    192.168.0.0/24                   # 2^8-2 hosts (192.168.0.1 - 192.168.0.254)
+    192.168.0.50-30                  # 192.168.0.50 - 192.168.0.80
+
+    Scanning on local network is citical. Some devices can not
+    handle the arp request storm and will drop packets. You should
+    not scan faster than 100 hosts in parallel on a local network.
+    If you scan a remote network you can go up until
+    5000 hosts in parallel without any problems.
+
+    The fingerprinter appears to be slow against a single host. Some devices
+    only support one tcp connection at the same time (some printers, routers)
+    and we thus are very carefull to not miss a banner.
+    The connect timeout is set to 5 seconds and the read timeout
+    to 35 seconds. Again, we have to consider stupid setups that try
+    to resolve our IP before (timeout of 30 seconds) before they
+    show us the banner.
+
+[0x04] Comments
+
+    Recently there was a media hype when some monkey.org guy released his
+    'new syncookie driven mega fast best of best' paketto scanner 'which
+    he already demonstrated at blackhat' (Hossa! _must_ be the shit if it
+    has been presented at blackhat :>.).
+
+    In 1998 an israeli group released a paper on bugtraq which documented
+    their development and use of a high speed TCP port scanner. The tool
+    was capable of scanning the entire internet. The tool was very well
+    written but did not support states and had some other difficulites.
+    (I lost the URL to that posting. mail me if you have it.).
+
+    In 1999 an unknown group developed bscan which was used in a counterstrike
+    operation to take down several 10.000 node strong flood networks which
+    threatened the internet during that period (I call it 'the kid period' of
+    the internet. Any halfgrown kid with the small penis syndrome thougth that
+    DDoS is be the ultimate art of hacking. Fools.). Bscan was the first
+    tool which scanned the internet serveral times on specific ports (the
+    ports used by the DDoS agents) within a single month. The SANS institute
+    categorized it as a 'ddos tool' itself after they found it in the wild.
+    In their opinion is everything that sends out syn packets at a rate of
+    10.000 / sec a DDoS tool :>. Bscan had a modular design and came with a
+    bind module, httpd_verson module, snmp modules, .. and was capable to
+    establish a full spoofed tcp connection using raw socket (and like the
+    israeli tool used the syncookie method).
+    Also Bscan was not perfect. It missed state support and an enhanced logging
+    facility.
+
+    So this paketto with his (quote) "reverse syncookie technique" is a very
+    old idea. Paketto does not address the real problems of high speed network
+    scanning (no, it's not done with putting a sendto() call into a while
+    loop :> see below).
+
+    THC-RUT is by far not perfect - it does not intend to be. It also
+    does not intend to replace bscan or the israeli tool. It's an
+    add-on, not a replacement.
+    
+    THC-RUT comes with a state table and retransmit lost packets. THC RUT
+    started as a simple arp sending packet which spoofed mac's, turned into a
+    usefull local network discovery tool and became a OS fingerprinter and
+    host discovery tool for large networks in its last release.
+
+
+[0x05] The real problem of High-speed network scanning
+
+    The real problems are mac resolving problems, router that send broken
+    tcp packets as answer, devices that can only handle one connection at a
+    time, MAC table overflow of remote routers, BGP routers that go
+    spinnlooping when hit by the scan stream, Half NAT'ed routers (send a
+    sync to 1.2.3.4 and get the sync/ack from 4.3.2.1), pseudo intelligent
+    firewalls which block the stream and retransmitting packets (You have
+    packetlost by scanning a Class A network - at one router or the other.).
+
+    FIXME: write more about why spread-scan mode is mandatory and not
+    optional. talk about volatile routes etc.
+
+    FIXME: Talk about routers that only accept one TCP connection.
+
+[0x06] OS fingerprinting
+
+    Let me define some words that I will use throughout this lame README:
+
+    An information is a single entity of data.
+
+    OS fingerprinting is the technique to identify the OS by information
+    which is unique for every OS.
+
+    The maximum number of different OS types that can be detected 
+    is less or equal to the number of permutations over all informations.
+
+    NMAP for examples uses (among others) the TCP OPTION's to
+    distinguish between OSes. The number of TCP OPTIONS is limited which
+    makes the number of permutations finite also. The result is that only
+    a limited number (e.g. the number of different permutations) can
+    be distinguished by NMAP.
+
+    OS Fingerprinting results can be cathegorized into 3 parts:
+
+    - low precission: Type of the device (Firewall, printer, switch, ...)
+    - middle precission: OS or architecture
+    - high precission: Type, Hotfix number, build version, ...
+
+    Several tools for remote OS Fingerprinting exist. Among them are state
+    of the art tools like nmap or xprobe2. Other tools like queso and passiv
+    OS Fingerprinting tools are either outdated or lag a large database of
+    fingerprints. 
+
+    Recently the Intranode Research Team came up with a new idea called
+    'temporal response analysis'. FIXME.
+
+    Papers have been written en-mass (FIXME) about different 
+
+    All presented solution fit some specific requirements and work under
+    certain circumstances. Most of them (nmap) rely on static pattern matching
+    and others (xprobe2) do not work reliable on the internet or through
+    firewalls or suffer from a well tested database.
+    
+    Xprobe2 and nmap give good results with middle precission. Nmap fails
+    far to often in the low precission field and detects a Baynet router
+    where a Win2k with some patches is in place. The high precission can not
+    be achieved by any of the existing tools as the TCP/IP stack does not
+    change for every hotfix or patch that is used.
+
+    THC-RUT is different. I do not believe in OS fingerprinting
+    masturbation but in working code and good results.
+
+    THC-RUT OS Fingerprinting identified the remote OS by matching the
+    following 'informations':
+
+    - Banner (snmp, web, telnet, ftp, smtp, ..)
+    - Open Port characterisitc (certain router have certain ports open
+      by default)
+    - NMAP like OS fingerprinting technqiues (TCP options + ICMP + TTL).
+
+    THC-RUT gives results after a 'fits best' method without relying on
+    static pattern matching.
+
+    THC-RUT enumerates the OS which makes it easier to use the output
+    in third party applications.
+
+    THC-RUT cathegorizes the findings into classes, type of host, os, arch,
+    version etc. If the OS can not be determined then at least the 
+    genre (firewall, host, printer, router, switch, ..) can be determined.
+
+    THC-RUT is fast on large networks and 'slow' (well, compare it to
+    nmap if you like) on single hosts.
+
+
+Yours sincerely,
+
+The Hacker's Choice
+http://www.thc.org
+

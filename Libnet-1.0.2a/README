@@ -1,0 +1,30 @@
+@@@@@
+@ NOTE: Libnet-1.0.2a comes with thcrut now because most systems are
+@ still missing it and route decided to change the API for the new
+@ libnet which actually breaks my code.
+@ We'll switch to Libnet-1.1.x once it became stable.
+@
+@ skyper@thc.org
+@@@@@
+
+===============================================================================
+    LIBNET 1.0 (c) 1998 - 2001 Mike D. Schiffman <mike@infonexus.com>
+                               http://www.packetfactory.net/libnet
+===============================================================================
+
+
+    Check doc/CHANGELOG to see what's new!
+
+Installation:
+-------------
+0. nroff -man doc/libnet.3 | less
+1. Read the doc/ files
+2. ./configure
+3. make
+4. make install
+
+ - optional -
+5. make supp
+6. make util
+
+EOF

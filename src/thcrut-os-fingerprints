@@ -1,0 +1,837 @@
+# $Id: thcrut-os-fingerprints,v 1.15 2003/05/25 18:19:16 skyper Exp $
+#
+#       --------------------------------------
+#        @@@@@@@@@@@    @@@     @@@    @@@@@@
+#            @@@        @@@@@@@@@@@   @@@  
+#            @@@        @@@     @@@    @@@@@@
+#       --------------------------------------
+#                  HTTP://WWW.THC.ORG
+#
+# Perl-style regular expression and port characteristic database.
+#
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# DONT ADD YOUR OWN TESTS. YOU WILL FUCK IT UP ANYWAY. USE
+#    ----> http://www.thehackerschoice.com/thc-rut <----
+# AND WAIT FOR THE UPDATED FINGERPRINT FILE.
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+#
+# @@@@@@@@@@@@
+# @@ y0y0. I'm currently rewriting the FP loading stuff and the format
+# @@ of this file will change. Do not rely on it :>
+# @@@@@@@@@@@@
+#
+# Credits:
+# - jc/THC for lot's of fingerprints.
+#
+# This file contains THCRUT OS FINGERPRINT PORT CHARACTERISTICS/BANNERS.
+# A banner can contain regular expressions (perl syntax!).
+#
+# It is quite simple to map Windows machienes and Routers, switches that way.
+# It becomes more complicated with Unix derivates. They are are usually
+# reconfigured by the admin.
+#
+# The matches dont need to be to specific. They are used to remove
+# false positives from a nmap test which always follows the port-state
+# and banner matching test.
+#
+# The field of operation is the INTRANET where we expect to have
+# most ports unfirewalled.
+#
+# A port has 3 states: Open, Closed, Unknown (firewalled).
+# Ports in state 'Unkown' are ignored.
+#
+# The result of these tests prioritize the results of the nmap tests.
+# This means we discard all nmap results that do not match with these
+# results. (we use these results as a kind of filter to filter out false
+# positives).
+#
+# The file is organized upward-down: Earlier fingerprints have less
+# priority than later ones. First name a generic tests line to identify
+# the genre, then become more specific.
+#
+# The engine always launches all listed tests.
+#
+# --[ Port Characteristics test
+#
+#     The accuracy is incremented by 1 for every port test that matches and
+# decremented by 1 if the test matches the opposite. The accuracy value is
+# not changed if the port state is not listed in the test line (e.g. dont care).
+# The port state test is ignored if no open port matches. The engine relies on
+# the banner test in this case.
+#
+#     A match against a closed ports is primarily used to negate an earlier
+# decission. For example has Samba 135T closed. This port on the other hand is
+# open on Windows. All other ports are either for both systems closed or open.
+# The 135T=Closed test is used here to remove the Windows choise from the
+# decsisson matrix.
+# 
+#    A test line in which no Open port matches is discared. Other behavior
+# would result in false positives. A host with all ports closed would otherwise
+# match 50% of the Samba test line.
+#
+# --[ Banner test
+#
+#     The accuracy is incremented by 2 for every match and decremented by 1
+# for every failed match. The accuracy value stays untouched if the banner
+# could not be retrieved (firewalled, readtimeout, ...).
+#
+#     Banner tests is a perl style regular expression.
+#
+# --[ Legend:
+#
+# T  TCP sync test (O=Open, C=Closed, default is to ignore if no answer at all)
+# W  Web 'Server:'
+# B  Banner
+# U  DCE BIND request (ALL windows 135U).
+# S  SNMP 'public' GET-NEXT system.sysDescr.0
+# N  NVT terminal banner test (telnetd banner)
+#
+# Notes:
+# - Nice2know: NT 4.0 replies to an empty UDP packet on port 135, W2K not.
+# - The telnetd banner is 'stripped': \x00 is removed, every \r is converted
+#   to a \n and all multiple occurances of non alpha-char
+#   (not inside 0x7F > x > 0x20) are reduced to one occurence. Some
+#   telnet banners contain 1k of \x00 and multiple \r\n (hi AIX!) which
+#   would exceed the storage space if we FP 1000 hosts in parallel.
+# - Many Routers/Switches can be distinguished by the NVT negotiation
+#   protocol messages. (We answer on ever Do with a Wont).
+#
+# --[ Structure
+#
+# ^Fingerprint:[0-15]{0,6}\s[a-zA-Z0-9]{0,80}[#[.*]]\n
+# [%[\s\t]*[0-9]{1,5}[TUWBS][-]*[0..9]*=[OUC[".*"]]]*[#[.*]]\n
+# ...
+# where '%' is optional at the beginning of the test line.
+# (not exactly, but you will get the point)
+#
+# The first line is called 'Class' or 'Fingerprint' line.
+# The second line is called 'test line' as it contains one or many tests
+# seperated by a '%'.
+#
+# The number following the ':' is the Class which categorizes the Fingerprint
+# by a digital value. See below for the Class format structure.
+# A class value is required for thcrut-os-fingerprints and optional for
+# nmap-os-fingerprints.
+#
+# TUWBS are the different tests against that port. A number which
+# is interpreted as the accuracy value follows (-20..20).
+# The accuracy is computed for each test line.
+# The accuracy is decremented by 1 for every test that fails within the
+# current test line (negative judging).
+#
+#
+# FIXME: This must be reworked.
+# FIXME: use () constructs for speedup (matching).
+# Class:
+# A class is currently represendet as NUMBER. Later on you might want
+# to change this into Names and translate them internally.
+#
+# Goal: Classes are introduced to catetogize hosts on the internet.
+# Queries like 'WHERE Genre=Mainframe AND Vendor=IBM OR OS!=AIX' should
+# be possible.
+#
+# GENRE.VENDOR.OS-GENRE[.OS.[DETAIL.DETAIL]]
+# This is currently work in progress. BRAINDUMPS:
+# 
+# OS: (Unix(Solaris|SCO|..),Windows(NT,XP,..))
+#
+# Vendor: MS, SuSE, Cisco, 
+# Type: Firewall, Router, Switch, Filesharing system, Printer, Workstation
+#       PDC,
+# 
+# Both, Genre and Vendor tag can be ignored to recognize the OS.
+# Genre and Vendor tag numbers are unique and assigned by THC.
+# (wanna add a new Genre? please let us know!)
+#
+# Please check info-db.txt for the assigned numbers.
+# ALso need some 'Special configuration' (ipsec enabled) tag etc.
+#
+# FIXME:
+# sometimes it would be nice to negate/bail out if the string would have
+# matched against antoher class (if match again 0.1.1 for example then
+# bail out).
+#
+# - Need some 'must match' statement. Example is APC powerswitch.
+#   Many other host also have 21B="220 \r\n". We need some statement
+#   that says '23N=..'-must-match and the 21B= is optional. But if 23N
+#   does not match then do not evaluate 21B at all (because to many other
+#   hosts also reply with this).
+#
+# - Need variables:
+#   $WINDOWS_LIKE = {21B="Windows", 21B="Serv-U", .....}
+#   Variable can then be used like:
+#   $WINDOWS_LIKE && !UNIX_LIKE
+#   UNIX_LIKE && DEBIAN && 22B="potato" -> Linux Debian Potato!
+
+#
+# Various unsorted stuff:
+# oracle open ports: http://owas.proxis.be/portlist
+#
+#
+
+### HOST-> Various (uncategorized) #####################
+# Also other device of which we dont know if they are router, switch or host.
+#
+Fingerprint:0.0.0.1 GoldStream Telnet Server
+	23N="GoldStream Telnet server"	# \xff\xfb\x01\xff\xfb\x03\nGoldStream Telnet server v2\.1\n Press \[ENTER] \n"
+
+Fingerprint:0.15.0 Cisco device
+	21B="220 Cisco CacheOS"%23N="^\xff\xfb\x01\nUsername:"
+	# 23N="\xff\xfb\x01\nUsername: \nUsername: "
+
+### HOST-> Microsoft ##########################################################
+Fingerprint:0.1.1 Windows	# most likely a windows if _just_ this found.
+	Testme:=135T=O%135U=U%139T=O
+	135T=O
+	135U=U
+	139T=O
+	21B=" Microsoft "
+	21B="for WinSock ready"
+#	21B="WarFTPd"
+	21B="^220 Please enter your user name[:\.]\r\n"	# WarFTPd
+	21B=" G6 FTP Server ready \.\.\.\r\n"
+	21B="^220 Gene6 \(gene6@gene6\.com\)\r\n"
+	21B="^220-cRoc\r\n"
+	21B="^220 want\.\r\n"	# cRoc ftp banner
+	21B="^220 Created by Grant Averett\r\n"	# Cerberus
+	22B="Windows"
+	22B=" VShell"
+	22B=" RemotelyAnywhere "	# "SSH-1.99-2.4.0 RemotelyAnywhere 4.10.284\n"
+	80W="Lotus-Domino"
+	80W="Citrix Web"
+	80W="^ Xitami"
+	23N="\xff\xfd%\xff\xfb\x01\xff\xfb\x03\xff\xfd'\xff\xfd\x1f\xff\xfd\xff\xfb"	# from 147.32.80.115, windows 2000 NVT negotiation
+	23N="\nWelcome to Microsoft Telnet Service "
+	25B="Microsoft "
+	25B="Eudora Internet Mail Server"
+	25B="P MAIL Service, Version:"
+	25B="MDaemon "
+	80W="\(Win32\)"
+	80W="TinyWeb"
+	80W="Microsoft"
+	80W="\(Win32\)"
+	80W=" OmniHTTPd/"	# " OmniHTTPd/2.10"
+	80W=" Cougar"	# Cougar 4.1.0.3858 / Cougar/9.00
+	80W="^ Oracle9iAS"	# " Oracle9iAS/9.0.2.1.1 Oracle HTTP Server"
+	161S="Windows"
+
+# various FP's but missing OS/PLATFORM:
+# 80W=".* Netscape-Enterprise/3.5.1"
+#         Runs on Solaris often or Windows.
+# 80W=".* NetWare-Enterprise"
+# 80W=".* Netware HTTP Stack"
+# 80W=".* Novell-HTTP"
+# 80W=".* WebSTAR"
+# Raptor Firewall HTTP Proxy:
+# 80W=".* Simple, Secure Web Server 1.1"
+# Cisco PIX Firewall SMTP Proxy v4.x
+# 25B=".* SMTP/cmap ready"
+# Also check out http://www.hoobie.net/mingsweeper
+# http://www.oueb.org/netexplorer/count_httpservers.html
+# FAILED: 130.89.145.4
+# POP MDaemon 6.5.2 ready 
+# IMAP4rev1 MDaemon 6.5.2 ready
+# What is:
+# (UNIX_SV 2.1.3) 
+
+# 70T=O%21T=O
+Fingerprint:0.1.1.1 Windows 95/98/NT <=4.0
+	139T=O%135T=O%445T=C
+
+Fingerprint:0.1.1.2 Windows NT 4.0
+	22T=C%139T=O%135T=O%445T=C%21B=" Microsoft FTP Service \(Version 2\.0\)"
+	22T=C%139T=O%135T=O%445T=C%21B=" for WinSock ready"
+	22T=C%139T=O%135T=O%445T=C%161S="Windows NT Version 4"
+	22B="Secure Shell Windows NT"	# Secure Shell Windows NT Server
+	22B=" F-Secure SSH Windows NT Server"
+	# 21B="220 Serv-U FTP Server v4\.1 for WinSock ready\.\.\.\r\n"
+
+Fingerprint:0.1.1.4 Windows 2000 / XP
+	139T=O%135U=U%445T=O
+	23N=" Windows 2000 "	# 23N="\xff\xfd%\xff\xfb\x01\xff\xfb\x03\xff\xfd'\xff\xfd\x1f\xff\xfd\xff\xfbMicrosoft \(R\) Windows 2000 \(TM\) Version 5\.00 \(Build 2195\)\nWelcome to Microsoft Telnet Service \nTelnet Server"
+
+Fingerprint:0.1.1.3 Windows 2000
+	21B=" Microsoft FTP Service \(Version 5\.0\)"%80W="Win2000"%161S4="Windows 2000 Version 5\.0"%25B="Version: 5\.0\.2172\.1"%%445T=O%139T=O%135T=O
+	21B=" Microsoft FTP Service \(Version 5\.0\)"%80W="Win2000"%161S4="Windows 2000 Version 5\.0"%25B="Version: 4\.0\.2195\.5329"%445T=O%139T=O%135T=O
+
+Fingerprint:0.1.1.5 Windows XP
+	80W="^ Microsoft-IIS/5\.1"%25B="Microsoft ESMTP MAIL .* Version: 6\.0\.2600\.1"%161S4="Windows 2000 Version 5\.1"%445T=O%139T=O%135T=O
+	
+
+# All DSL users in .at using w2k have this open :>
+#Fingerprint:1.4 Windows 2000 with IPSEC
+#	1723T=O%21B=".* Microsoft FTP Service \(Version 5.0\)"
+#	1723T=O%80W="Win2000"
+#	1723T=O%161S="Windows 2000"
+
+### HOST -> Unix  ##############################################################
+Fingerprint:0.0.2 Unix
+	80W0="\(Win32\)"%80W="Apache"
+	80W="thttpd/.*"
+	80W="\(Unix\)"
+	80W=" Squid"
+	80W=" publicfile"
+	21B=" FTP server \(Version wu-"
+	21B="220 ProFTPD "
+	#22B=".*-OpenSSH.*"
+	22T=O      # Hopefully! Can also be some appliance that we dont recognize
+	22B="-OpenSSH"
+	25B="220 .* Smail3\."
+	25B=" Exim "
+	25B=" ESMTP Postfix"
+	25B=" Sendmail "
+
+# Need to distinguish samba from windows. Take care.
+#Fingerprint:0.0.2 Unix (Samba running)
+	#%139T=O%135T=C%137T=C	# 3 points accuracy
+	#139T=O%137T=C%445T=C	# 2 points accuracy
+
+# What we check here is what follows the 'Server: ' statement.
+# The first two characters are used for hashing.
+Fingerprint:0.4.3 Linux SuSE
+	80W="SuSE"		# (Linux/SuSE); (SuSE/Linux)
+	21B="powered by SuSE Linux"
+	25B="SuSE Linux"
+
+Fingerprint:0.4.3.1 Linux SuSE 7.x
+ 	25B=".*SuSE Linux 7\."
+
+Fingerprint:0.6.3 Linux Debian
+	21B="Server \(Debian\)"%22B3=" Debian"%25B="Sendmail .*Debian"%80W="Debian"
+	# 25B="220 hostname ESMTP Postfix \(Debian/GNU\)\r\n"
+	80W="Debian"%25B=" Debian"%22B3=" Debian"
+
+Fingerprint:0.6.3.1 Linux Debian 'Potato'
+	22B3="potato"		# Debian 1:3.4p1-0.0potato1
+
+Fingerprint:0.6.3.2 Linux Debian 'Woody'
+	22B3="woody"		# Debian 1:3.4p1-0.0woody1
+
+Fingerprint:0.5.3 Linux Redhat
+	80W="Red[- ]Hat"%23N="Red[- ]Hat "
+
+Fingerprint:0.5.3.5.1 Linux Red Hat 5.1 (Manhattan)
+	21B="Thu May 7 23:18:51 EDT 1998\) ready\.\r\n"
+	23N="\(Manhattan\)"
+
+Fingerprint:0.5.3.6 Linux Red Hat 6.0 (Hedwig)
+	23N="\(Hedwig\)"
+
+Fingerprint:0.5.3.6.1 Linux Red Hat 6.1 (Cartman)
+	23N="\(Cartman\)"
+# Identd test currently not implemented.
+#	113I="pidentd 3\.0\.7 .* \(Sep 13 1999 20:16:57\)"
+
+# Im currently uncertain if i should match againt strict banners.
+# How many hosts are there that do not update their apache regulary?
+Fingerprint:0.5.3.7.2 Linux Red Hat 7.2 (Enigma)
+	23N="\(Enigma\)"%80W="^ Apache/1\.3\.27 \(Unix\) mod_gzip/1\.3\.19\.1a PHP/4\.2\.3 mod_ssl/2\.8"
+
+Fingerprint:0.5.3.7.3 Linux Red Hat 7.3 (Valhalla)
+	23N="\(Valhalla\)"
+
+Fingerprint:0.7.3 Turbo Linux
+	80W="\(TurboLinux\)"
+
+Fingerprint:0.8.3 Conectiva Linux
+	80W="\(Conectiva/Linux\)"
+
+Fingerprint:0.8.3.1 Conectiva Linux 8.0
+	80W="1\.3\.26 \(Unix\)  \(Conectiva/Linux\)"
+
+Fingerprint:0.9.3 Linux Mandrake
+	80W="\(Mandrake"
+	80W="-Mandrake"
+	# 80W=" Apache-AdvancedExtranetServer/1.3.22 (Linux-Mandrake/1.3mdk)"
+
+Fingerprint:0.10.3 Gentoo Linux
+	80W="Gentoo"
+
+Fingerprint:0.11.8 OpenBSD
+	# 21B4: "(Version 6.5/OpenBSD, linux" (<-- newer release?)
+	# OpenBSD 2.8: "\(Version 6\.5/OpenBSD\) ready
+	21B4="OpenBSD"%23N4="OpenBSD/"
+	# 23N="\xff\xfd%\xff\xfb&\xff\xfd&\xff\xfd\x18\xff\xfd \xff\xfd#\xff\xfd'\xff\xfd\$\xff\xfa\x18\x01\xff\xf0\xff\xfb\x03\xff\xfd\x01\xff\xfd\"\xff\xfd\x1f\xff\xfb\x05\xff\xfd\!\xff\xfb\x01\xff\xfd\x06\nOpenBSD/i386 \(merlin\) \(ttyp3\)\nlogin: login: "
+	21B4="OpenBSD"
+	# This string is also default on Debian: %23N="^\xff\xfd%\xff\xfb&\xff\xfd&\xff\xfd\x18\xff\xfd \xff\xfd#\xff\xfd'\xff\xfd\$\xff\xfa\x18\x01\xff\xf0\xff\xfb\x03\xff\xfd\x01\xff\xfd\"\xff\xfd\x1f\xff\xfb\x05\xff\xfd\!\xff\xfb\x01"
+
+Fingerprint:0.11.6 FreeBSD
+	22B=" FreeBSD"
+	23N="FreeBSD/"
+	80W=" FreeBSD"
+	21B=" FTP server \(Version 6\.00LS\)"
+	21B=" FTP server \(Version 6\.00\) ready\.\r\n"	# 4.1? 
+	80W=" FreeBSD"%22B=" FreeBSD-"
+
+# OpenBSD has the 23N string somewhere in the middle of the negotiation.
+Fingerprint:0.11.6.0.1 FreeBSD 4.1
+	23N1="\xff\xfd\x18\xff\xfd \xff\xfd#\xff\xfd'\xff\xfd\$\xff\xfa\x18\x01\xff\xf0\xff\xfb\x03\xff\xfd\x01\xff\xfd\"\xff\xfd\x1f\xff\xfb\x05\xff\xfd\!\xff\xfb\x01"
+
+Fingerprint:0.11.6.1 FreeBSD 4.7	# or -RC2
+	22B=" FreeBSD-20020702"%25B=" ESMTP Sendmail 8\.12\.6/8\.12\.6; "
+
+Fingerprint:0.11.7 NetBSD
+	22B="NetBSD"		# NetBSD_Secfure_Shell-20020626
+
+Fingerprint:0.2.9 Solaris
+	21B=" \(SunOS"%22B="-Sun_"%25B="Sendmail .*\+Sun"%80W=" Sun_WebServer"
+	21B=" \(SunOS"%22B="-Sun_"%25B="Sendmail .*\+Sun"%80W=" Sun Cobalt"
+	# 22: Sun9 started shipping their boxes with this.
+	# 25: Solaris 7 or later
+
+# FIXME:
+# - make variable useable.
+# - implement grouping under a Fingerprint line
+#   - mmap() the file (easier to parse then)
+#   - (25B="lala"\n25B="lulu") etc should work.
+#     We step through it until we have a hit and
+#     exit immediatly. The higest accuracy should be named first.
+#     With this we can group together all the 80W windows crap.
+#     The result is that for every test we for sure
+#     get only ONE result. This can btw. also be verified
+#     if we already checked this testnr_cat on comparsion
+#     and step to the next one. That might be easier than using the
+#     () stuff. It would be faster on comparsion if we would have
+#     a linked list for every test.
+#     % operations would then become useless. Everything under a
+#     Fingerprint:-line would be evaluated in any combination that
+#     exist.
+#   - Negative tests are hardly possible then. We must use != in that case
+#     and list them first. != mean 'must not be equal', e.g. we stop
+#     processing if equal immediatly and do not evaluate the rest of
+#     the entire Fingerprint:-line.
+#
+# Fingerprint {
+#     CLASS = 0.2.9
+#     NAME  = "Solaris"
+#     VAR=[80W="lalal"%..]
+#     VAR2=[
+#		80W="Web"
+#		21B="OpenFTP"
+#	]
+# }
+#
+Fingerprint:0.2.9 Solaris
+	21B=" \(SunOS"%22B="-Sun_"%23N="SunOS"%%25B="Sendmail .*\+Sun"
+		80W=" Sun_WebServer"
+		80W=" Sun Cobalt"
+	161S="^Sun SNMP Agent"
+
+Fingerprint:0.2.9.6 Solaris 6
+	21B4=".* \(SunOS 5\.6\)"
+	25B="-SVR4 ready"
+
+Fingerprint:0.2.9.7 Solaris 7
+	21B=".* \(SunOS 5\.7\)"%22B="SSH-1\.5-1\.2\.32"%23N="SunOS 5\.7"%25B="Sendmail .*\+Sun"%161S="SunOS .* 5\.7 Gen"
+
+Fingerprint:0.2.9.8 Solaris 8
+	21B4=" \(SunOS 5\.8\)"%23N4="SunOS 5\.8"%25B="Sendmail .*\+Sun/8"%161S4="SunOS .* 5\.8 Gen"
+	21B4=" \(SunOS 5\.8\)"%23N4="SunOS 5\.8"%25B="Sendmail .*\+Sun/8"%161S="^Sun SNMP Agent"
+
+
+# FIXME: very sloppy. match version number directly. Need info here guys.
+# some linuxes have this installed too
+#Fingerprint:2.2 Solaris
+#	22B=".* SSH Secure Shell \(non-commercial\)"
+
+#Fingerprint:2.2.8 Solaris 8
+#	22B="SSH-2.0-3.1.0 SSH Secure Shell \(non-commercial\)"
+
+#Fingerprint:2.2.9 Solaris 8
+#	22B="SSH-2.0-3.2.0 SSH Secure Shell \(non-commercial\)"
+
+Fingerprint:0.12.10 Plan9 (2nd Edition)
+	21B="220 Plan 9 FTP server"
+
+Fingerprint:0.3.12 AIX
+	161S="IBM PowerPC .* AIX"
+
+# \xff\xfd\x18\xff\xfe\x18\xff\xfb\x01\xff\xfb\x03\xff\xfd\x1f\xff\xfc\xc8\xff\xfd\x01\ntelnet ()\nAIX Version 4\n(C) Copyrights by IBM a
+Fingerprint:0.3.12.4 AIX 4
+	161S="IBM PowerPC .* AIX version: 04"%21B="\(Version 4\.1 Mon Aug 21 10:34:44 CDT 1995\)"%23N="\nAIX Version 4"%25B=" AIX 4"	# Sendmail AIX 4.1/UCB 5.64/4.03 ready
+
+Fingerprint:0.3.12.4.3 AIX 4.33
+	161S="IBM PowerPC .* AIX version: 04\.03"  # AIX version: 04.03.0002
+
+Fingerprint:0.3.13 OS/390 V5R0M0
+	161S="SNMPv3 agent version 1\.0 with DPI version 2\.0"
+
+Fingerprint:0.3.0 IBM
+	21B="IBM "%25B="IBM "%80W="IBM-HTTP-Server"
+	# IBM VM SMTP Level 310
+	# IBM AS/400
+
+Fingerprint:0.3.0.1 IBM VM (310?)
+	21B=" IBM VM "%25B=" IBM VM "
+
+Fingerprint:0.13.11 Apple Macintosh
+	21B="Macintosh FTP"
+	21B="220 NetPresenz v"	# NetPresenz v4.1 awaits your command.
+	80W=" PersonalNetFinder/"	# " PersonalNetFinder/1.0 ID/ACGI"
+
+Fingerprint:0.13.11.1 Mac OSX
+	80W="MacOSX"
+	80W="Mac OS X Server"
+	80W="MacHTTP/"
+	80W=" Web Sharing"
+Fingerprint:0.13.11.2 MAC OS-9
+#	23N="\nOS-9/"	# \xff\xfb\x01\nOS-9/68K V2.4 Quanterra Q4124 - 68030   102/12/21 21:45:34
+	23N="\nOS-9/"%21B=" OS-9 ftp server ready"%80W="Msheer/"
+
+# Holly shit, we categorized Novell under Unix!
+Fingerprint:0.14.14 Novell NetWare
+	21B="^220 Service Ready for new User\r\n$"%25B=" Novell, Inc"%23N="^\xff\xfd\x18$"%80W="^ NetWare-Enterprise-Web-Server"	# 80W=" NetWare-Enterprise-Web-Server/5.1"
+	21B=" for NW "	# 21B="220  FTP Server for NW 3\.1x, 4\.xx  \(v1\.10\), \(c\) 1994 HellSoft\.\r\n"
+	21B="\(NetWare "
+	23N="X11 Console Session to the NetWare Server"
+	25B="Novell, Inc"
+	23N="Help is Ctrl-\? or Ctrl-w"%25B="^520 Connection not authorised from this address"%80W="^ Novell-HTTP-Server"%80W="^ NetWare HTTP Stack"
+	161S="Novell NetWare"
+	# 25B="220 tigra GroupWise Internet Agent 5\.5\.4\.1 Ready \(C\)1993, 1999 Novell, Inc\.\r\n"
+
+Fingerprint:0.14.14.4.1 Novell 4.11 (NetWare)
+	21B="\(NetWare v4"
+	25B="Mercury 1\.48 ESMTP server ready"
+	161S="Novell NetWare 4"
+
+Fingerprint:0.14.14.5 Novell 5.00.09 (NetWare)
+	21B="\(Netware v5"
+	25B="GroupWise Internet Agent "%23N="^\xff\xfd\x18\xff\xfa\x18\x01\xff\xf0\xff\xfb\x03\xff\xfb\x01\n-*\nHelp is Ctrl-\? or Ctrl-w"
+	161S3="Novell Netware 5"
+	# 25B="220 tigra GroupWise Internet Agent 5\.5\.4\.1 Ready \(C\)1993, 1999 Novell, Inc\.\r\n"
+
+Fingerprint:0.14.14.6 Novell 6 (NetWare)
+	161S="Novell NetWare 5\.60"   # Novell 5.60 = 6
+
+Fingerprint:0.21.15 Compaq Tru64 UNIX
+	21B="Compaq Tru64"
+	22B=" Tru64 UNIX "	# SSH Secure Shell Tru64 UNIX V1.0
+
+Fingerprint:0.21.15 Digital UNIX (now Compaq Tru64 UNIX)
+	21B="Digital UNIX"%23N="Digital UNIX "	# \xff\xfd\x18\xff\xfd \xff\xfd#\xff\xfd'\xff\xfd$\xff\xfb\x03\xff\xfd\x01\xff\xfd\x1f\xff\xfb\x05\xff\xfd!\xff\xfb\x01\nDigi"
+	21B=" server \(Version 5\.60\) ready\."%23N="Digital UNIX "	# \xff\xfd\x18\xff\xfd \xff\xfd#\xff\xfd'\xff\xfd$\xff\xfb\x03\xff\xfd\x01\xff\xfd\x1f\xff\xfb\x05\xff\xfd!\xff\xfb\x01\nDigi"
+
+Fingerprint:0.21.16 Compaq OpenVMS (MultiNet)
+	21B="MultiNet FTP Server"%25B=".*GIVEME2 "%22B=".*Process Software MultiNet"
+	21B="MultiNet FTP Server"%25B=".*GIVEME2 "
+	23N="OpenVMS"		# Welcome to OpenVMS Alpha (TM) Operating System, Version V6.2
+
+Fingerprint:0.19.17 HP-UX
+	23N="HP-UX "
+
+Fingerprint:0.19.17.1 HP-UX B.10.20
+	23N="HP-UX .* B\.10\.20"%21B="\(Version 1\.7\.212\.2 Tue Apr 21 12"
+
+# Cisco developed the TCP stack for OpenVMS
+Fingerprint:0.21.16 Compaq Alpha/VAX OpenVMS (MultiNet by Cisco)
+	25B="CISCO MultiNet V"	# Cisco implements TCP/IP services for OpenVMS
+
+Fingerprint:0.22.18 Irix
+	23N="IRIX "	# 
+	25B=" SGI-"	# ESMTP Sendmail SGI-8.9.3/8.9.3;"
+
+Fingerprint:0.22.18.6.5 Irix 6.5 Origin2
+	23N="\xff\xfd\x18\xff\xfd \xff\xfd#\xff\xfd\$\xff\xfb\x03\xff\xfd\x01\xff\xfd\x1f\xff\xfb\x05\xff\xfd\!\xff\xfb\x01\nIRIX "
+
+
+Fingerprint:0.29.19 Commodore C64
+	21B=" C64\)"%25B=" Ultramile v\."
+	23N20="\xff\xfd\x18\xff\xfd\x1f\xff\xfd#\xff\xfd'\xff\xfd\$\xff\xfe\x18\xff\xfe\x1f\xff\xfe#\xff\xfe'\xff\xfe\$"
+
+### SWITCH ###################################################################
+#
+# 1 - Catalyst
+
+# Allegro-Software-RomPager is an HTTP server used in network hardware
+# (such as switches) to provide a web interface to remotly configure your
+# hardware.
+Fingerprint:2.0.0 generic Switch
+	80W="Allegro-Software-RomPager"
+
+# No known OS or Vendor (or not important enough)
+Fingerprint:2.0.0.1 Omni Switch
+	21B=" Omni Switch"
+
+Fingerprint:2.0.0.2 ECSC Tiger Switch
+	23N4="^\xff\xfb\x01\xff\xfb\x03\xff\xfd\x01\x1b\[0;37;40m\x1b\[2J\x1b\[0;37;40m\x1b\[1m\x1b\[2;6H SSSSSSSSSSSS"
+	23N4="^\x1b\[1;24r\x1b\[24;1H\x1b\[24;1H\x1b\[2K\x1b\[24;1H\x1b\[\?25h\x1b\[24;1H\x1b\[24;1HPassword: "
+	23N4="^\xff\xfb\x01\x1b\[2J\x1b\[1m\x1b\[2;13HSSSSS"
+
+Fingerprint:2.0.0.3 Allied Telesyn Switch
+	23N="\xff\xfb\x01\xff\xfb\x03\xff\xfd\x01\x1b\[0;37;40m\x1b"
+	23N="AT-8324SX"	# same as above (147.32.118.254)
+
+Fingerprint:2.0.0.4 Extreme Networks Black Diamond switch
+	80W="^ Allegro-Software-RomPager"%23N="Extreme Networks"
+	# 23N="\xff\xfb\x01\nCopyright \(C\) 1999 by Extreme Networks\nlogin: \xff\xfb\x01\nlogin: "
+	# 80W=" Allegro-Software-RomPager/2.10"
+
+
+Fingerprint:2.15.0 Cisco switch
+	2001T=O
+	6001T=O  # this can also be X11 :/
+
+Fingerprint:2.15.4.1.1 Cisco Catalyst 19XX switch
+	23N="\nPassword required, but none set\n"
+	23N="Catalyst 1900 Management Console"	# \x01\xff\xfd\x03\xff\xfb\x03\xff\xfb\x01\xff\xfe\x03
+	23N="\xff\xfd\x03\xff\xfb\x03\xff\xfb\x01\xff\xfe\x03"
+
+Fingerprint:2.15.4.1.2 Cisco Catalyst 2XXX switch
+	161S4="Cisco .*\(C2[0-9]"  # Cisco Internetwork Operating System Software IOS (tm) C2950 Software (C2950-I6Q4L2-M), Version 12.1(9)EA1, RELEASE SOFTWARE (fc1)
+# This is already to specific
+#Fingerprint:3.1.1.1 Cisco Catalyst 2900 switch
+#	161S="Cisco .*\(C29"
+Fingerprint:2.15.4.1.2 Cisco Catalyst 2900XL Switch
+	161S4=" C2900XL "
+
+Fingerprint:2.15.4.1.3 Cisco Catalyst 3XXX switch
+	161S4="Cisco Catalyst 3"		# Cisco Catalyst 3900 HW Rev 002; SW Rev 4.1(1)
+
+Fingerprint:2.15.4 Cisco switch (WS-CXXXX)
+	161S4="Cisco Systems WS-C"	# Cisco Systems WS-C6509; Cisco Systems WS-C5500
+
+#Fingerprint:3.1.1.11Cisco Catalyst 2950G switch
+#	161S="Cisco .*\(C2950"  # Cisco Internetwork Operating System Software IOS (tm) C2950 Software (C2950-I6Q4L2-M), Version 12.1(9)EA1, RELEASE SOFTWARE (fc1)
+	
+# 130.89.144.118
+Fingerprint:2.16.0 3Com
+	80W=" 3Com/v1\.0"%23N3="\xff\xfd\x03\xff\xfb\x03\xff\xfb\x01\n\xff\xfe\x03\nLogin"
+	# 3Com Switch 1100
+
+# Why can this be a linkbuilder?
+Fingerprint:2.16.0.1 3Com SuperStack II, Switch 110
+	23N3="\xff\xfd\x03\xff\xfb\x03\xff\xfb\x01\nLogin: \xff\xfe\x03"
+	23N3="\xff\xfd\x03\xff\xfb\x03\xff\xfb\x01\n\xff\xfe\x03\nLogin: "
+
+Fingerprint:2.16.0.2 3Com Linkbuilder or SuperStack II
+	23N="q{40}"	# SuperStackII welcome grfx
+	#23N="\x1b\[2J\x1b\(0\x1b\[01;00Hlqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqk\x1b\[03;00Hqqqqqqqqqqqqqqqqqqqqqqqq"
+	## 3Com SuperStackII Switch 3000, SW Version:3\.10
+	#23N="\x1b\[2J\x1b\(0\x1b\[01;00Hlqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqk\x1b\[03;00Hqqqqqqqqqqqqqqqqqqqqqqqq"
+
+Fingerprint:2.16.0.3 3Com SuperStack II
+	161S4="^3Com SuperStackII"
+	23N3="\xff\xfd\x03\xff\xfb\x03\xff\xfb\x01\n\xff\xfe\x03\nLogin: "%161S4="^3Com SuperStack II"
+	23N3="\xff\xfd\x03\xff\xfb\x03\xff\xfb\x01\nLogin: \xff\xfe\x03"%161S="^3Com"
+
+Fingerprint:2.17.0 Lucent Cajun  # Avaya Firmware
+	161S="Avaya Inc"	# Avaya Inc. - P330 Stackable Switch, SW version 3.11.0
+	161S="Summit1i"		# Summit1i - Version 6.1.8 (Build 12) by"
+
+
+Fingerprint:2.23.0 EntraSys switch
+	23N="Vertical Horizon Local Management"	# Enerasys switch
+
+Fingerprint:2.23.0.1 EntraSys VH-8TX1UM
+	23N4="VH-8TX1UM"
+Fingerprint:2.23.0.2 EntraSys VH-2402S
+	23N4="VH-2402S"
+
+Fingerprint:2.24.0 Cabletron switch
+	23N="CABLETRON Systems"
+	23N="CABLETRON Systems"%80W="Agranat-EmWeb"	# " Agranat-EmWeb/R4_02"
+	23N0="Vertical Horizon"%23N=" Local Management\x1b"
+Fingerprint:2.24.0.1 Cabletron 2H252-25R Smart Switch
+	23N="2H252-25R"
+	23N="2H252-25R"%80W="Agranat-EmWeb"
+
+Fingerprint:2.31.0 Foundry Networks switch
+	80W=" Foundry Networks"%23N="\xff\xfb\x01\xff\xfb\x03telnet"
+	80W=" Foundry Networks"%23N="^Telnet server disabled\n"
+
+Fingerprint:2.33.0 Nortel Networks switch
+	23N="Nortel Networks"
+
+Fingerprint:2.33.0.1 Nortel Networks BayStack 540-24T
+	23N="\xff\xfd\x18\xff\xfd \xff\xfd#\xff\xfd\$\xff\xfb\x03\xff\xfd\x01\xff\xfd\"\xff\xfd\x1f\xff\xfb\x05\xff\xfd\!\xff\xfb\x01\xff\xfd\x06\xff\xfc\x01\xff\xfb\x01\nNortel Networks"
+
+Fingerprint:2.33.0.2 Nortel Networks BayStack 450-24T
+	23N="\xff\xfd\x03\xff\xfb\x01\xff\xfb\x03\x1b\[1;1H"
+
+Fingerprint:2.34.0 Bay Networks switch
+	#23N1="\xff\xfd\x03\xff\xfb\x03\xff\xfb\x01"	# 3com also
+	23N="\bBay Networks"
+	# and so cisco!
+
+Fingerprint:2.37.0 SynOptics Hub
+	161S3="^SynOptics .* Ethernet Concentrator"
+
+Fingerprint:2.37.0.1 SynOptics 2310 Series Ethernet Concentrator
+	161S3="^SynOptics 2310 Series Ethernet Concentrator"
+
+### ROUTERS ##################################################################
+
+# generic router FP's (tell me if other routers use the telnet banner or
+# if it is 100% cisco specific).
+Fingerprint:1.0.0 Router
+	23N="\nUser Access Verification"
+
+Fingerprint:1.0.0.1 DSL Router
+	23N="\xff\xfb\x01\xff\xfb\x03\xff\xfe\x01\nlogin"	# Some DSL router
+
+Fingerprint:1.0.0.2 Agranat ADSL router
+	80W="Agranat-EmWeb"%21B="421 Session access restricted"
+
+# This actually is a ADSl-Ethernet router/bridge
+Fingerprint:1.0.0.3 Alcatel Speed Touch router
+	#23N="\xff\xfe\"\xff\xfb\x01\xff\xfb\x03User :" the 'SpeedTouch' match is better.
+	23N="SpeedTouch \("
+
+Fingerprint:1.0.0.4 OpenROUTE Router
+	161S="^Portable M68360 C Gateway"%23N="\xff\xfb\x01\xff\xfb\x03\nlogin: \n"
+
+# 1 - Cisco BGP
+#
+# This means even if port 137 is found open we consider it a Cisco.
+
+Fingerprint:1.15.4 Cisco router
+	80W="cisco-"  # cisco-ISO and cisco-CPA
+	23N="\nUser Access Verification"%22B="Cisco"
+	23N="\[1mPress RETURN to activate console \. \. \."	# TACAS++ enabled?
+	23N="CISCO "
+	23N="^\xff\xfb\x01\xff\xfb\x03\xff\xfd\x18\xff\xfd\x1f\n"
+	23N="\bCisco Systems, Inc\. Console"
+
+#Fingerprint:1.15.4.1.2 Cisco 29XX
+#	23N="\n29.* ready to connect"
+
+Fingerprint:1.15.4.1.3 Cisco 36XX BGP router
+	161S4="Cisco .*\(C36"
+	%23N="\xff\xfb\x01\xff\xfb\x03\xff\xfd\x18\xff\xfd\x1f\n.*\nUser Access Verification\n.*: \xff\xfe\x18\xff\xfe\x1f\n"
+
+Fingerprint:1.15.4.1.5 Cisco 53XX Access Server
+	161S4="\(tm\) 5300 Software"	# IOS (tm) 5300 Software (C5300-I-M), Version 12.2(2)XA, EARLY DEPLOYMENT RELEASE SOFTWARE (fc1)
+
+Fingerprint:1.15.4.2 Cisco 72XX router
+	23N="CISCO 72"%161S="\(tm\) 7200 Software"
+	# IOS (tm) 7200 Software (C7200-JS-M), Version 12.2(1a), RELEASE SOFTWARE (fc1) Copyright (c) 1986-2001 by cisco Systems, Inc.
+
+Fingerprint:1.18.0 BinTec Bianca/Brick XL router
+	161S="BIANCA/BRICK-XL"
+
+Fingerprint:1.36.0.1 Intel Express Router
+	161S="Intel Express"
+
+Fingerprint:1.36.0.2 Intel Express 9530 Router
+	161S="ER9530 Intel Express"%139T=C%445T=C%2001T=C
+
+### ACCESS POINT / Dialup Router / Microwave bridges  ############################################################
+
+Fingerprint:16.0.0 Planet WAP-1965 AccessPoint
+	80W="^ Embedded HTTP Server 3.3.0"
+
+Fingerprint:16.0.0 Aironet BR100E Microwave Bridge
+	21B="\(Aironet BR"%161S="^Aironet BR"%23N="Aironet BR"
+
+Fingerprint:16.0.0.1 Polycom ISDN router
+	23N="\xff\xfb\x01\xff\xfd\x03\nHi, my name is"%80W=" Viavideo-Web"
+
+Fingerprint:16.0.0.2 Aironet BR500E WiFi Bridge
+	21B="\(Aironet BR500E"%23N="Aironet BR500E "
+	# 23N="\xff\xfb\x01\xff\xfe\x01Connected\nAironet BR500E V8\.24 Main Menu dejvicka_kolej\n Option Value Description\n1 - Privilege \[ off ] - Set privilege l"
+	# 21B="220 dejvicka_kolej \(Aironet BR500E V8\.24\) ready\r\n"
+
+Fingerprint:16.0.0.3 DXC 10 A
+	23N="DXC10"
+	# 23N="\xff\xfd\x18\xff\xfb\x01\xff\xfd\x03\xff\xfb\x03\x1b[2J\x1b[H\x07\nDXC10A
+
+Fingerprint:16.13.0 Apple Airport Base Station
+	161S="Base Station V3"
+
+Fingerprint:16.30.0 Shiva LanRover Dialup router
+	23N="\xff\xfb\x01@ Userid: "
+
+# POTS, ISDN, T1/E1 interface, up to 60 simultanous voice and fac channels
+Fingerprint:16.33.0 Nortel Passport switch
+	161S="Passport"	# Passport-8610 (3.0.3)
+
+### PRINTERS #################################################################
+Fingerprint:4.0.0 Printer
+	21B="220 printer"
+	21B=" Printer "
+	23N="Print Server"	# "\xff\xfb\x01\xff\xfd\x03\xff\xfb\x03\nWelcome to Print Server\nPS>\xff\xfe\x03\nPS>\nPS>"
+	80W=" Web Server/2\.0"
+	80W=" PRINT_SERVER "	# " PRINT_SERVER WEB 1.0"
+
+Fingerprint:4.19.0 HP Jetdirect Laserjet
+	80W="HTTP/1\.0"%21B="220 JD FTP Server Ready"
+	161S="JETDIRECT"	# HP ETHERNET MULTI-ENVIRONMENT,ROM G.08.21,JETDIRECT,JD33,EEPROM G.08.21
+	21B="220 JD FTP Server Ready"%80W=" Agranat-EmWeb"
+	21B="220 JD FTP Server Ready"%80W="  HP-ChaiServer"
+	23N="\xff\xfc\x01\nPlease type \[Return] two times, to initialize telnet configuration\nFor HELP type "
+	23N="HP JetDirect"	# "\xff\xfc\x01\nHP JetDirect\nPlease type \"\?\" for HELP, or \"/\" for current settings\n> "
+
+Fingerprint:4.25.0 Epson Network Print Server
+	23N="EPSON Network Print Server"	# "\xff\xfb\x01\n-> ***  EPSON Network Print Server (EPAEEFBC)  ***\n\x08        \nlogin:  "
+	23N="\nSorry, this system is engaged\.\n"	# 2 TCP connection
+
+Fingerprint:4.13.0 Apple LaserWriter
+	23N="Apple Computer"	# \xff\xfb\x01\xff\xfb\x03\n\**\n  Apple Computer, Inc.\n LaserWriter 12/640 P"
+
+Fingerprint:4.26.0 Axis Printer Server
+	21B="FTP Printer Server V"	# NPS 5400 FTP Printer Server V5.58.08 Mar 17 2000 ready.
+Fingerprint:4.26.0.1 Axis NPS 5400 Printer Server
+	21B=" NPS 5400 FTP Printer"
+
+Fingerprint:4.28.0 Lexmark LaserPrinter
+	21B="Lexmark "	# "220 FTP server: Lexmark Optra LaserPrinter ready\r"
+
+Fingerprint:4.28.0.1 Lexmark Optra T612 printer
+	21B=" MarkNet Pro "	# "220 LXK257A09 MarkNet Pro 1 FTP Server 2.10.10 ready.\r"
+
+Fingerprint:4.26.0.1 Xerox DocuPrint N2125 Network Laser Printer
+	80W1="^ Allegro-Software-RomPager"%161S="^Xerox DocuPrint N2125 Network Laser P"
+	# FIXME: So many devices are using Allegro-Softw...
+
+Fingerprint:4.35.0 APC Power Controller
+	23N="\xff\xfb\x01\xff\xfb\x03\xff\xfd\x03\nUser Name : "
+	# This is also true for many many other servers.
+	#21B="^220 \r\n"%23N="\xff\xfb\x01\xff\xfb\x03\xff\xfd\x03\nUser Name : "
+
+### APPLIENCE ################################################################
+Fingerprint:32.0.0 Canon WebCam
+	80W=" Canon Http Server 1"
+
+Fingerprint:32.0.0 Axis 2100 Network Camera
+	21B="^220 Axis 2100"%80W="^ Boa/"
+
+Fingerprint:32.20.0.1 Quantum PowerVault 508080 Filesharing System
+	80W=" Quantum Corporation\./3\.4\.790"%21B="220 Service ready for new user\." #%139T=O%135T=C%137T=C
+
+Fingerprint:32.0.0 unknown Embedded device
+	80W="Digital Comet Embedded Server"
+	80W=" Spyglass[_-]MicroServer"	# 80W=" Spyglass_MicroServer/2.00FC4"
+	80W="HP-ChaiServer"
+	80W=" EHTTP/"	# Siemens EHTTP server module (java)
+Fingerprint:32.0.0 Ethernet Board
+	21B=" EthernetBoard"	# "220 EthernetBoard MLETB08 Ver 2.0.0 FTP server.\r\n"
+	23N="EthernetBoard "	# "\xff\xfd\x03\xff\xfb\x01\xff\xfb\x03EthernetBoard MLETB08 Ver 2.0.0 TELNET server.\nlogin: \xff\xfe\x03\nlogin: "
+	25B="^421 Service not available, closing transmission channel\r\n"
+	80W=" JC-HTTPD/"	# " JC-HTTPD/1.3.7" EthernetBoard
+Fingerprint:32.0.0 Wind River pSOSystem
+	23N="\bBaseSystem "%21B=" pSOSystem FTP server"
+Fingerprint:32.0.0 Rapid Logic embedded device
+	80W="^ Rapid Logic/1.1"%23N="^\xff\xfb\x03\xff\xfb\x01\n Disconnecting"
+
+Fingerprint:32.32.0.1 Ericsson IP Telephony AP
+	23N="\n ,#\n ,#' \n ####"	# ericsson logo
+
+
+### FIREWALL #################################################################
+# FW-1 has 256, 257, 258 open
+#      on 259/tcp is an identification string from FW1
+# MS Proxy Server has 1745, 1080 open
+
+Fingerprint:8.15.0 Eagle Firewall
+	23N="Eagle Secure Gateway"%25B="the firewall does not"
+	# Eagle Secure Gateway.
+	# Hostname:
+	# 421 10.10.1.8 Sorry, the firewall does not provide mail service to you.
+
+Fingerprint:8.15.4.1 Cisco PIX Firewall
+	161S="Cisco Secure PIX Firewall"   # Cisco Secure PIX Firewall Version 5.3(2)
+
+Fingerprint:8.0.0 Netscreen Firewall Management Console
+	23N="NetScreen Remote Management Console\n"%80W=" NetScreen-100"
+	# \xff\xfd\x18\xff\xfb\x01\xff\xfe\x01\xff\xfd\x03NetScreen Remote Management Console\n
+

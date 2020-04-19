@@ -1,0 +1,23 @@
+OINK OINK OINK OINK. You dont want to take a look at this file. OIN OINK OINK
+
+- Interpret FP's from a file full of banners etc..
+  (also put nmap-os-fingerprints in there. See BUGS/info.txt for more details).
+
+- The timeout for banner scans etc suxx. But we can bind to a certain
+  port and then sniff the RST and instantly switch to next state
+  if the port is closed. This would mean no 1 sec timeout for
+  every port we check.
+
+- fast reverse ip resolver.
+  - use nameservers from /etc/resolv.conf
+    and/or nameserver the user can specify on command line.
+
+- better option support:
+  thcrut dhcp <options>
+  thcrut icmp <options>
+  thcrut bootp <options>
+  thcrut arp <options>
+  thcrut dns <options>
+  thcrut rut <options>
+
+

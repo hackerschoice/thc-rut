@@ -1,0 +1,13 @@
+#! /bin/sh
+rm -f Makefile Makefile.in config.cache config.h config.status config.log aclocal.m4
+echo "libtoolize"
+libtoolize --force
+echo "aclocal"
+aclocal -I .
+echo "autoheader"
+autoheader
+echo "automake"
+automake --foreign --add-missing
+echo "autoconf"
+autoconf
+

@@ -1,0 +1,13 @@
+#! /bin/sh
+rm -f libnet-config Makefile Makefile.in config.cache include/config.h config.status config.log aclocal.m4 src/Makefile src/Makefile.in
+echo "libtoolize"
+libtoolize --force
+echo "aclocal"
+aclocal -I .
+echo "autoheader"
+autoheader
+echo "automake"
+automake --foreign --add-missing
+echo "autoconf"
+autoconf
+

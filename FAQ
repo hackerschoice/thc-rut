@@ -1,0 +1,41 @@
+
+THCRUT FAQ.
+Contact me if any of your questions can not be answered by this FAQ.
+anonymous@segfault.net or any of the THC guys.
+
+Contents
+1 - Compilation & Installation
+  1.1 - Does not compile :/ Baehehahah
+2 - Using thcrut
+  2.1 - Why does my CPU jump to 100% after a few minutes?
+  2.2 - Why is thcrut so slow on local networks?
+
+--[ 1 - Compilation & Installation
+
+1.1 - Does not compile :/ Baehehahah
+
+    First try ./configure --enable-dist. This configures thcrut to use
+its own version of libnet and libpcre.
+
+    If this wont work try to use --with-include=<dir> and --with-libs=<dir>
+to set the correct include and library path of the libpcap files.
+
+
+--[ Using thcrut
+
+2.1 - Why does my CPU jump to 100% after a few minutes?
+
+    Some linux kernel (my 2.4.19-gentoo-r10) require >5000 ms for a simple
+sendto() system call _after_ a lot of packets have been send to _many_ (>16.000)
+different IPs. Update your kernel (sendto() remains at 12ms after 1.000.000
+sendto() calls on the 2.4.20 stock kernel).
+
+2.2 - Why is thcrut so slow on local networks?
+
+    The kernel has to resolve the mac of every computer on the local
+network first. This makes the system slow. Sometimes the arp table
+overflows in which case thcrut tries to resend the packet.
+
+    Solution: Use -l 100 or less if you have a slow machiene and want to
+scan a local network.
+
