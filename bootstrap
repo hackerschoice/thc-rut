@@ -25,14 +25,12 @@ fi
 
 echo Removing old files...
 rm -f configure Makefile Makefile.in src/Makefile src/Makefile.in config.h config.status aclocal.m4 config.cache config.log
+[ -d "config" ] &&  rm -rf config
+mkdir config
 
-cd pcre-3.9
-./bootstrap
-cd ..
-
-cd Libnet-1.0.2a
-./bootstrap
-cd ..
+#cd pcre-3.9
+#./bootstrap
+#cd ..
 
 echo "aclocal -I ."
 aclocal -I . 
