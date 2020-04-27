@@ -12,7 +12,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <libnet.h>
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "dhcp.h"
 #include "thcrut_libnet.h"
 #include "network_raw.h"
@@ -32,13 +32,16 @@
 extern struct _opt opt;
 static void dhcp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet);
 
-static struct _lnet lnet;
+//static struct _lnet lnet;
 //static struct _bmac bmac;
 static struct _dhcpset ds;
-static char dsbuf[1024];
-static char buf_packet[1024];
-static char *packet; /* Aligned so that ip-header is on a 4byte boundary */
-static unsigned char srcmac[ETH_ALEN];
+static uint8_t dsbuf[1024];
+static uint8_t payload[1024];
+static uint8_t srcmac[ETH_ALEN];
+
+static libnet_ptag_t ln_udp;
+static libnet_ptag_t ln_ip;
+static libnet_ptag_t ln_eth;
 
 /*
  * Print out the last suboptions (one:value two:value, ..)
@@ -69,23 +72,51 @@ dhcp_print_lastsub(struct _dhcpset *ds)
  * Build and send DHCP request.
  */
 static int 
-do_dhcp(char *packet, unsigned char *smac, long dstip)
+do_dhcp(uint32_t dstip)
 {
-	int len;
 	int c;
-	struct ip *ip = (struct ip *)(packet + LIBNET_ETH_H);
-	struct _bootp *bp = (struct _bootp *)(packet + LIBNET_ETH_H + LIBNET_IP_H + LIBNET_UDP_H);
+	//struct ip *ip = (struct ip *)(packet + LIBNET_ETH_H);
+	struct _bootp *bp = (struct _bootp *)(payload);
 
-	memcpy(packet + ETH_ALEN, smac, ETH_ALEN);
-	memcpy(bp->chaddr, smac, ETH_ALEN);
+	memcpy(bp->chaddr, srcmac, ETH_ALEN);
 
-	len = LIBNET_ETH_H + LIBNET_IP_H + LIBNET_UDP_H + DHCP_MIN_OPT;
-	ip->ip_len = htons(len - LIBNET_ETH_H);
-	ip->ip_dst.s_addr = htonl(dstip);
-	libnet_do_checksum(packet + LIBNET_ETH_H, IPPROTO_IP, LIBNET_IP_H);
-	c = libnet_write_link_layer(opt.network, opt.device, packet, len);
-	if (c != len)
-		libnet_error(LIBNET_ERR_FATAL, "libnet_write_link_layer: %d bytes\n", c);
+	ln_udp = libnet_build_udp(68,
+		67,
+		LIBNET_UDP_H + ds.lsize,
+		0,
+		dsbuf,
+		ds.lsize,
+		opt.ln_ctx,
+		ln_udp);
+
+	ln_ip = libnet_build_ipv4(0 /* total length ip + payload*/,
+		0,	/* TOS */
+		7350,	/* IP ID */
+		0,	/* frags */
+		128, 	/* TTL */
+		IPPROTO_UDP,
+		0,
+		opt.src_ip,
+		dstip,
+		NULL,
+		0,
+		opt.ln_ctx,
+		ln_ip);
+
+	ln_eth = libnet_build_ethernet(ETHBCAST,
+		srcmac,
+		ETHERTYPE_IP,
+		NULL, 0, opt.ln_ctx, ln_eth);
+	
+	//len = LIBNET_ETH_H + LIBNET_IP_H + LIBNET_UDP_H + DHCP_MIN_OPT;
+	//ip->ip_len = htons(len - LIBNET_ETH_H);
+	//ip->ip_dst.s_addr = htonl(dstip);
+	//libnet_do_checksum(packet + LIBNET_ETH_H, IPPROTO_IP, LIBNET_IP_H);
+	//c = libnet_write_link_layer(opt.network, opt.device, packet, len);
+	c = libnet_write(opt.ln_ctx);
+
+	if (c <= 0)
+		ERREXIT("libnet_write() = %d: %s\n", c, libnet_geterror(opt.ln_ctx));
 
 	return 0;
 }
@@ -93,17 +124,17 @@ do_dhcp(char *packet, unsigned char *smac, long dstip)
 static void
 init_vars(void)
 {
-	struct ip *ip;
+	//struct ip *ip;
 
 	opt.ip_socket = init_pcap(opt.device, 1, "udp and dst port 68", NULL, NULL, &opt.dlt_len);
-	opt.network = init_libnet(&opt.device, NULL);
-	packet = (buf_packet + 2); /* IP header should be aligned */
-	ip = (struct ip *)(packet + LIBNET_ETH_H);
+	opt.ln_ctx = init_libnet(opt.device);
+	//packet = (buf_packet + 2); /* IP header should be aligned */
+	//ip = (struct ip *)(packet + LIBNET_ETH_H);
 
-	if (libnet_init_packet(MAX_PAYLOAD_SIZE, &lnet.packet) == -1)
-		libnet_error(LIBNET_ERR_FATAL, "libnet_init_packet failed\n");
+	//if (libnet_init_packet(MAX_PAYLOAD_SIZE, &lnet.packet) == -1)
+	//	libnet_error(LIBNET_ERR_FATAL, "libnet_init_packet failed\n");
 
-	dhcp_gen_packets(packet, LIBNET_UDP_H + DHCP_MIN_OPT, opt.src_ip, dsbuf, &ds);
+	dhcp_gen_packets(payload, opt.src_ip, dsbuf, &ds);
 }
 
 static void
@@ -204,15 +235,15 @@ dis_timeout(struct _state *state)
 	{
 	case STATE_RESET:
 		STATE_current(state) = STATE_DHCPI;
-		do_dhcp(packet, srcmac, STATE_ip(state));
+		do_dhcp(STATE_ip(state));
 		break;
 	case STATE_DHCPI:
 		STATE_current(state) = STATE_DHCPII;
-		do_dhcp(packet, srcmac, STATE_ip(state));
+		do_dhcp(STATE_ip(state));
 		break;
 	case STATE_DHCPII:
 		STATE_current(state) = STATE_DHCPIII;
-		do_dhcp(packet, srcmac, STATE_ip(state));
+		do_dhcp(STATE_ip(state));
 		break;
 	case STATE_DHCPIII:
 		STATE_reset(state);
@@ -237,13 +268,13 @@ cb_filter(void)
 static void
 bootp_print(struct ip *ip, struct _bootp *bp, int len)
 {
-	char *ptr;
+	uint8_t *ptr;
 	int c;
-	unsigned char buf[2048];
+	char buf[2048];
 	unsigned char dptype, dplen;
 
-	printf("BOOTP reply from %s -> ", int_ntoa(ip->ip_src));
-	printf("%s\n", int_ntoa(ip->ip_dst));
+	printf("BOOTP reply from %s -> ", int_ntoa(ip->ip_src.s_addr));
+	printf("%s\n", int_ntoa(ip->ip_dst.s_addr));
 	printf("  Server      : %s\n", int_ntoa(bp->siaddr));
 	printf("  Client      : %s\n", int_ntoa(bp->yiaddr));
 	printf("  Relay Agent : %s\n", int_ntoa(bp->giaddr));
@@ -297,14 +328,14 @@ dhcp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 	if (vrfy_udp(udp, len) != 0)
 		return;
 
-	if (udp->uh_dport != htons(68))
+	if (udp->dest != htons(68))
 		return;
 
 	if (bp->op != BOOTP_REPLY)
 		return;
 
-	if (len > ntohs(udp->uh_ulen))
-		len = ntohs(udp->uh_ulen);
+	if (len > ntohs(udp->len))
+		len = ntohs(udp->len);
 
 	if (len < sizeof(struct _bootp) + 8)
 		return;  /* Empty BOOTP message */
@@ -321,7 +352,7 @@ dhcp_main(int argc, char *argv[])
 	struct _state state;
 	int ret;
 
-	memset(buf_packet, 0, sizeof buf_packet);
+	memset(payload, 0, sizeof payload);
 
 	init_defaults();
 	do_getopt(argc, argv);

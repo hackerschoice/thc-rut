@@ -5,7 +5,7 @@
  */
 
 #include "default.h"
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "nmap_compat.h"
 #include "fp.h"
 
@@ -23,7 +23,7 @@ static void NMAP_HASH_add(struct _nmap_osfp *osfp, struct _nmap_osfp_TONE *tone)
  * in opstr (if supplied).
  */
 unsigned long
-NMAP_tcpops2ops(char *opstr, unsigned char *buf, size_t len)
+NMAP_tcpops2ops(char *opstr, char *buf, size_t len)
 {
 	unsigned long ops = 0;
 	int ofs = 0;
@@ -210,7 +210,7 @@ add_tones(struct _nmap_osfp *osfp, char *buf, unsigned long ofs_string, unsigned
 	char *ops;
 	char *end;
 	char *ptr;
-	long l;
+	unsigned long l;
 
 	memset(&this, 0, sizeof this);
 

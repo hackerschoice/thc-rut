@@ -10,15 +10,18 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <libnet.h>
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "arpg.h"
 #include "thcrut_sig.h"
 #include "thcrut_pcap.h"
 
 
-extern struct _lnet lnet;
+//extern struct _lnet lnet;
 extern struct _opt opt;
 //extern struct _pcap pcap;
+
+libnet_ptag_t ln_arp;
+libnet_ptag_t ln_eth;
 
 /*
  * send out ARP-REPLY from ip/mac to ip/mac
@@ -28,6 +31,25 @@ int
 send_arp(u_short proto, u_long spf_sip, u_char spf_smac[6], u_long spf_dip, u_char spf_dmac[6])
 {
 	int c;
+
+	ln_arp = libnet_build_arp(ARPHRD_ETHER,
+		ETHERTYPE_IP,
+		6, 4, proto,
+		spf_smac,
+		(uint8_t *)&spf_sip,
+		spf_dmac,
+		(uint8_t *)&spf_dip,
+		NULL,
+		0,
+		opt.ln_ctx, ln_arp);
+
+	ln_eth = libnet_build_ethernet(ETHBCAST,
+		spf_smac,
+		ETHERTYPE_ARP,
+		NULL,
+		0,
+		opt.ln_ctx, ln_eth);
+#if 0
 
 	libnet_build_ethernet(spf_dmac,
 		spf_smac,
@@ -48,15 +70,12 @@ send_arp(u_short proto, u_long spf_sip, u_char spf_smac[6], u_long spf_dip, u_ch
 		NULL,
 		0,
 		lnet.packet + LIBNET_ETH_H);
+#endif
 
-	lnet.packet_size = LIBNET_ETH_H + LIBNET_ARP_H;
-	c = libnet_write_link_layer(opt.network,
-		opt.device,
-		lnet. packet,
-		lnet.packet_size);
-	if (c < lnet.packet_size)
-		libnet_error(LIBNET_ERR_WARNING,
-			"libnet_write_link_layer, only %d bytes\n", c);
+	c = libnet_write(opt.ln_ctx);
+
+	if (c < LIBNET_ETH_H + LIBNET_ARP_H)
+		ERREXIT("libnet_write() = %d, %s\n", c, libnet_geterror(opt.ln_ctx));
 
 	return 0;
 }

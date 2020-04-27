@@ -117,7 +117,7 @@ struct _fp_testsuite
 	unsigned char  n_tests; /* Total number of different tests in fp-file */
 	struct _fp_category cat[6];
 
-	unsigned char *strings;
+	char *strings;
 	struct _fp *fps;  /* Linked list of Fingerprints */
 };
 /*

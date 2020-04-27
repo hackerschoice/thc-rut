@@ -28,7 +28,9 @@ struct _state_dis
 {
 	struct _state state;
 	unsigned short slen;
-	char sbuf[20 + 20 + FP_MAX_LEN];  /* Does not need to be that large. */
+	uint32_t dst_ip;
+	uint8_t proto;
+	uint8_t sbuf[20 + FP_MAX_LEN];  /* Does not need to be that large. */
 					  /* Rather small packets are send   */
 					  /* in discoveyr only phase. ICMP   */
 					  /* is the max.                     */
@@ -41,7 +43,9 @@ struct _state_fp
 {
 	struct _state state;
 	unsigned short slen;
-	char sbuf[20 + 20 + FP_MAX_LEN];      /* send buffer */
+	uint32_t dst_ip;
+	uint8_t proto;
+	uint8_t sbuf[20 + FP_MAX_LEN];      /* send buffer */
 
 	union _un
 	{

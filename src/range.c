@@ -4,7 +4,7 @@
 #include "default.h"
 #include <stdio.h>
 #include <sys/types.h>
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "range.h"
 
 #define int_ntoa(x)   inet_ntoa(*((struct in_addr *)&(x)))

@@ -153,15 +153,11 @@
 
 #define BOOTPVENEXT_H   64      /* lenght of bootp vendor extension */
 
-#ifndef int_ntoa
-#define int_ntoa(x)   inet_ntoa(*((struct in_addr *)&(x)))
-#endif
-
 struct _dhcpnfoset
 {
     unsigned char  tag;
     unsigned char  enctype;     /* encoding type, DHCP_8I, DHCP_HEX, ... */
-    unsigned char  *name;
+    char  *name;
 };
 
 struct _dhcpset
@@ -194,14 +190,14 @@ struct _bootp
     unsigned char      chaddr[16]; /* chaddr from client DHCPDISCOVER */
     char        sname[4*16];/* Server host name or options */
     char        file[8*16]; /* Client boot file name or options */
-    char	options[0];
+    uint8_t	options[0];
 };
 
 const char *dhcp_str(unsigned char);
 int init_dhcpset(struct _dhcpset *, unsigned char *, unsigned long len);
-int dhcp_add_option(struct _dhcpset *, unsigned char tag, unsigned char len, unsigned char *value);
+int dhcp_add_option(struct _dhcpset *, unsigned char tag, unsigned char len, char *value);
 int dhcp_add_suboption(struct _dhcpset *, unsigned char);
-int build_bootp(char *, unsigned char *, int);
+int build_bootp(uint8_t *, unsigned char *, int);
 char *dhcp_val2str(char *, int, unsigned char, unsigned char, unsigned char *);
 struct _dhcpnfoset *dhcp_getnfoset(void);
 void dhcp_set_default(struct _dhcpset *ds);

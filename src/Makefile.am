@@ -5,6 +5,6 @@ noinst_HEADERS = nvt.h icmp_main.h arp_main.h thcrut_libnet.h dhcp_main.h system
 thcrutdir = $(sysconfdir)
 EXTRA_DIST = manuf nmap-os-fingerprints thcrut-os-fingerprints
 pkgdata_DATA = manuf nmap-os-fingerprints thcrut-os-fingerprints
-AM_CFLAGS = `@PRG_LIBNET_CONFIG_CFLAGS@` `@PRG_PCRE_CONFIG_CFLAGS@`
-LIBS = @LIBS@ `@PRG_LIBNET_CONFIG_LIBS@` `@PRG_PCRE_CONFIG_LIBS@`
+## AM_CFLAGS = `@PRG_LIBNET_CONFIG_CFLAGS@` `@PRG_PCRE_CONFIG_CFLAGS@`
+## LIBS = @LIBS@ `@PRG_LIBNET_CONFIG_LIBS@` `@PRG_PCRE_CONFIG_LIBS@`
 

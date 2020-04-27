@@ -79,7 +79,7 @@ readvendornames(char *file)
 {
 	FILE *fptr = NULL;
 	char buf[256];
-	unsigned char *ptr, *ptr2;
+	char *ptr, *ptr2;
 	unsigned char tag[3];
 	unsigned long vendorlen = 0;
 	unsigned long vendorptrlen = 0;

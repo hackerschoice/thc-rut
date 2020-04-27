@@ -3,18 +3,11 @@
  */
 
 #include "default.h"
-#include <sys/types.h>
-#include <stdio.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-#include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
-#include <libnet.h>
 #include "network.h"
 #include "network_raw.h"
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "thcrut_pcap.h"
 #include "packets.h"
 #include "icmp_main.h"
@@ -27,11 +20,11 @@ static void usage(void);
 static void icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet);
 static void dis_timeout(struct _state *state);
 static void cb_filter(void);
-static int sendicmp(struct _state_icmp *state, char *data, size_t len);
+static size_t sendicmp(struct _state_icmp *state, uint8_t *data, size_t len);
 
-static char packet_echo[20 + 8 + 8];
-static char packet_amask[20 + 8 + 4];
-static char packet_rsol[20 + 8];
+static uint8_t packet_echo[8 + 8];
+static uint8_t packet_amask[8 + 4];
+static uint8_t packet_rsol[8];
 
 #define DFL_HOSTS_PARALLEL	(200)
 
@@ -40,8 +33,10 @@ static char packet_rsol[20 + 8];
 #define STATE_ICMPII	(2)
 #define STATE_ICMPIII	(3)
 
-extern int rawsox;
+//extern libnet_t rawsox;
 extern struct _opt opt;
+
+static libnet_ptag_t ln_ip;
 
 static void
 init_defaults(void)
@@ -55,8 +50,8 @@ init_vars(void)
 {
 	opt.ip_socket = init_pcap(opt.device, 1, "icmp", &opt.net, &opt.bcast, &opt.dlt_len);
 
-	rawsox = net_sock_raw();
-	if (rawsox < 0)
+	opt.ln_ctx = net_sock_raw();
+	if (opt.ln_ctx == NULL)
 	{
 		fprintf(stderr, "socket: %s\n", strerror(errno));
 		exit(-1);
@@ -141,16 +136,16 @@ sendpackets(struct _state_icmp *state, unsigned int seq)
 
 	if (state->flags & FL_ST_ECHO)
 	{
-		icmp = (struct icmp *)(packet_echo + 20);
+		icmp = (struct icmp *)(packet_echo);
 		icmp->icmp_hun.ih_idseq.icd_seq = htons(seq);
-		tv = (struct timeval *)(packet_echo + 20 + 8);
+		tv = (struct timeval *)(packet_echo + 8);
 		gettimeofday(tv, NULL);
 		if (sendicmp(state, packet_echo, sizeof packet_echo) == 0)
 			return 0;
 	}
 	if (state->flags & FL_ST_AMASK)
 	{
-		icmp = (struct icmp *)(packet_amask + 20);
+		icmp = (struct icmp *)(packet_amask);
 		icmp->icmp_hun.ih_idseq.icd_seq = htons(seq);
 		if (sendicmp(state, packet_amask, sizeof packet_amask) == 0)
 			return 0;
@@ -215,16 +210,34 @@ cb_filter(void)
 /*
  * Return number 0 if blocked, -1 on error >0 otherwise.
  */
-static int
-sendicmp(struct _state_icmp *state, char *data, size_t len)
+static size_t
+sendicmp(struct _state_icmp *state, uint8_t *data, size_t len)
 {
+#if 0
 	struct ip *ip = (struct ip *)(data);
 
 	ip->ip_dst.s_addr = htonl(STATE_ip(state));
 	DEBUGF("ip len= %d\n", ntohs(ip->ip_len));
-	/* ICMP checksum is mandatory */
-	libnet_do_checksum(data, IPPROTO_ICMP, len - LIBNET_IPV4_H);
-	return net_send(rawsox, data, len);
+#endif
+
+	ln_ip  = libnet_build_ipv4(
+		/*LIBNET_ICMPV4_H + */len,
+		0,
+		31337,
+		0,
+		128,
+		IPPROTO_ICMP,
+		0,
+		opt.src_ip,
+		STATE_ip(state),
+		data,
+		len,
+		opt.ln_ctx,
+		ln_ip);
+
+	/* ICMP checksum is mandatory. FIXME  */
+
+	return net_send(opt.ln_ctx);
 }
 
 static void

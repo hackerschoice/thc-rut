@@ -63,7 +63,7 @@ struct _nmap_osfp
 long NMAP_class2long(const char *input);
 int NMAP_load_fp(struct _nmap_osfp *osfp, char *file);
 struct _nmap_osfp_TONE *NMAP_lookup(struct _nmap_osfp *osfp, unsigned short wsize, char df, unsigned long ops);
-unsigned long NMAP_tcpops2ops(char *opstr, unsigned char *buf, size_t len);
+unsigned long NMAP_tcpops2ops(char *opstr, char *buf, size_t len);
 char * NMAP_long2class(char *dst, long val);
 
 #endif /* !__THCRUT_NMAP_COMPAT_H__ */

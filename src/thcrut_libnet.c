@@ -2,17 +2,19 @@
  * $Id: thcrut_libnet.c,v 1.2 2003/05/23 14:14:02 skyper Exp $
  */
 
+#include "default.h"
 #include <libnet.h>
 
 #define int_ntoa(x) inet_ntoa(*((struct in_addr *)&(x)))
 
-struct libnet_link_int *
-init_libnet(char **device, int *ip)
+libnet_t *
+init_libnet(char *device/*, int *ip*/)
 {
 	char err_buf[LIBNET_ERRBUF_SIZE];
-	struct libnet_link_int *network;
-	char *mydev = NULL;
+	libnet_t *ln_ctx;
 
+	err_buf[0] = 0;
+#if 0
 	if ((device == NULL) || (*device == NULL))
 	{
 		struct sockaddr_in sin;
@@ -25,14 +27,15 @@ init_libnet(char **device, int *ip)
 
 	if (strcmp(mydev, "any") == 0)
 		return NULL;
+#endif
 
-	network = libnet_open_link_interface(mydev, err_buf);
-	if (!network)
-		libnet_error(LIBNET_ERR_FATAL, "libnet_open_link_interface: %s\n", err_buf);
+	ln_ctx = libnet_init(LIBNET_LINK_ADV, device, err_buf);
+	//network = libnet_open_link_interface(mydev, err_buf);
+	if (!ln_ctx)
+		ERREXIT("libnet_init(): %s\n", err_buf);
 
-	if (device)
-		*device = mydev;
 
+#if 0
 	if (ip)
 	{
 		if (!*ip)
@@ -40,13 +43,14 @@ init_libnet(char **device, int *ip)
 		if (*ip)
 			fprintf(stderr, "thcrut: using source ip %s\n", int_ntoa(*ip));
 	}
+#endif
 
-	return network;
+	return ln_ctx;
 }
 
 void
-fini_libnet(struct libnet_link_int *network)
+fini_libnet(libnet_t *ln_ctx)
 {
-	libnet_close_link_interface(network);
+	libnet_destroy(ln_ctx);
 }
 

@@ -14,8 +14,8 @@
 #define MAX_PAYLOAD_SIZE	(1024)
 #define ETHDLTLEN		(14)
 #define PCAP_FILTER 		"arp or icmp or udp"
-#define ETHBCAST		"\xff\xff\xff\xff\xff\xff"
-#define ETHZCAST		"\x00\x00\x00\x00\x00\x00"
+#define ETHBCAST		(uint8_t *)"\xff\xff\xff\xff\xff\xff"
+#define ETHZCAST		(uint8_t *)"\x00\x00\x00\x00\x00\x00"
 
 
 /*
@@ -39,13 +39,16 @@ struct _spfip
 
 struct _opt
 {
+	libnet_t *ln_ctx;
+	//libnet_ptag_t ln_arp;
+	//libnet_ptag_t ln_eth;
 	pcap_t *ip_socket;
 	int dlt_len;
 	long hosts_parallel; /* how many hosts at the same time */
 	char *device;
 	long net;   /* network address in HBO */
 	long bcast; /* broadcast address in HBO */
-	int src_ip; /* NBO */
+	uint32_t src_ip; /* NBO */
 	int dst_ip;
 	unsigned short src_port;
 	unsigned short ip_id;  /* IP id field we sniff for */
@@ -57,7 +60,7 @@ struct _opt
 	pid_t childpid;
 	struct _ipranges ipr;
 	struct _state_queue sq;
-	int rawsox;
+	//int rawsox;
 	struct _nmap_osfp osfp;
 	struct _fp_testsuite fpts;
 };
@@ -116,9 +119,9 @@ struct ETH_arp
 	unsigned char hw_size;
 	unsigned char p_size;
 	short ar_op;
-	char ar_sha[ETH_ALEN];
+	uint8_t ar_sha[ETH_ALEN];
 	char ar_sip[4];
-	char ar_tha[ETH_ALEN];
+	uint8_t ar_tha[ETH_ALEN];
 	char ar_tip[4];
 };
 

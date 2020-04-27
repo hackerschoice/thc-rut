@@ -17,7 +17,7 @@
 #include <time.h>
 #include <libnet.h>
 #include "macvendor.h"
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "range.h"
 #include "packets.h"
 #include "network.h"
@@ -36,8 +36,9 @@ extern struct _opt opt;
 static void arp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet);
 static void do_arp();
 
-static char packet[LIBNET_ETH_H + LIBNET_ARP_H];
-static char srcmac[ETH_ALEN];
+static libnet_ptag_t ln_arp;
+static libnet_ptag_t ln_eth;
+static uint8_t srcmac[ETH_ALEN];
 
 static void
 init_vars(void)
@@ -46,7 +47,7 @@ init_vars(void)
 	char *ptr;
 	struct stat sbuf;
 	char err_buf[LIBNET_ERRBUF_SIZE];
-	struct ether_addr *hw;
+	struct libnet_ether_addr *hw;
 
 	opt.ip_socket = init_pcap(opt.device, 1, "arp[6:2] = 2", NULL, NULL, &opt.dlt_len);
 	/*
@@ -54,16 +55,17 @@ init_vars(void)
 	 */
 	if (!(opt.flags & FL_OPT_SPOOFMAC))
 	{
-		hw = libnet_get_hwaddr(opt.network, opt.device, err_buf);
+		//hw = libnet_get_hwaddr(opt.network, opt.device, err_buf);
+		hw = libnet_get_hwaddr(opt.ln_ctx);
 		if (!hw)
 		{
 			fprintf(stderr, "libnet_get_hwaddr: %s\n", err_buf);
 			exit(-1);
 		}
-		memcpy(srcmac, (char *)hw, ETH_ALEN);
+		memcpy(srcmac, hw->ether_addr_octet, ETH_ALEN);
 	}
 
-	arp_gen_packets(packet, opt.src_ip);
+	arp_gen_packets(opt.src_ip);
 
 	/*
 	 * Try to load mac vendor DB. Ignore if we fail.
@@ -102,7 +104,7 @@ usage(void)
 static void
 init_defaults(void)
 {
-	opt.network = init_libnet(&opt.device, &opt.src_ip);
+	opt.ln_ctx = init_libnet(opt.device /*, &opt.src_ip*/);
 	if (opt.hosts_parallel == 0)
 		opt.hosts_parallel = DFL_HOSTS_PARALLEL;
 }
@@ -140,21 +142,31 @@ do_getopt(int argc, char *argv[])
  * Send arp request
  */
 static void
-do_arp(char *packet, char *srcmac, long ip)
+do_arp(uint32_t ip)
 {
-	struct ETH_arp *eth_arp = (struct ETH_arp *)(packet + LIBNET_ETH_H);
+	//struct ETH_arp *eth_arp = (struct ETH_arp *)(packet + LIBNET_ETH_H);
 	int c;
 
 	ip = htonl(ip);
-	memcpy(packet + ETH_ALEN, srcmac, ETH_ALEN);
-	memcpy(eth_arp->ar_sha, srcmac, ETH_ALEN);
-	memcpy(eth_arp->ar_tip, &ip, 4);  /* Put the dst ip into the packet */
 
-	c = libnet_write_link_layer(opt.network, opt.device, packet, LIBNET_ETH_H + LIBNET_ARP_H);
+	ln_arp = libnet_build_arp(ARPHRD_ETHER,
+			ETHERTYPE_IP,
+			6, 4, ARPOP_REQUEST,
+			srcmac /*ETHZCAST*/,
+			(uint8_t *)&opt.src_ip,
+			ETHBCAST,
+			(uint8_t *)&ip, 
+			NULL, 0, opt.ln_ctx, ln_arp);
+
+	ln_eth = libnet_build_ethernet(ETHBCAST,
+			srcmac /*ETHZCAST*/,
+			ETHERTYPE_ARP,
+			NULL, 0, opt.ln_ctx, ln_eth);
+
+	c = libnet_write(opt.ln_ctx);
 	if (c != LIBNET_ETH_H + LIBNET_ARP_H)
 	{
-		libnet_error(LIBNET_ERR_FATAL, "libnet_write_link_layer (%d)", c);
-		exit(-1);
+		ERREXIT("libnet_write() = %d, %s\n", c, libnet_geterror(opt.ln_ctx));
 	}
 }
 
@@ -165,15 +177,15 @@ dis_timeout(struct _state *state)
 	{
 	case STATE_RESET:
 		STATE_current(state) = STATE_ARPI;
-		do_arp(packet, srcmac, STATE_ip(state));
+		do_arp(STATE_ip(state));
 		break;
 	case STATE_ARPI:
 		STATE_current(state) = STATE_ARPII;
-		do_arp(packet, srcmac, STATE_ip(state));
+		do_arp(STATE_ip(state));
 		break;
 	case STATE_ARPII:
 		STATE_current(state) = STATE_ARPIII;
-		do_arp(packet, srcmac, STATE_ip(state));
+		do_arp(STATE_ip(state));
 		break;
 	case STATE_ARPIII:
 		STATE_reset(state);
@@ -230,8 +242,6 @@ arp_main(int argc, char *argv[])
 	struct _state state;
 	struct pcap_stat ps;
 	int ret;
-
-	memset(packet, 0, sizeof packet);
 
 	init_defaults();
 	do_getopt(argc, argv);

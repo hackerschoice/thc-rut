@@ -5,7 +5,7 @@
 #include "default.h"
 #include <sys/types.h>
 #include <signal.h>
-#include "thcrut.h"
+#include "thc-rut.h"
 
 static void sigparent_handler(int sig);
 

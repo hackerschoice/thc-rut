@@ -9,8 +9,8 @@
 #include "dhcp.h"
 
 void scanner_gen_packets(void);
-void dhcp_gen_packets(char *packet, int iptotlen, unsigned int srcip, char *dsbuf, struct _dhcpset *ds);
-void arp_gen_packets(char *packet, unsigned int srcip);
-void icmp_gen_packets(char *pe, int pe_s, char *pa, int pa_s, char *pr, int pr_s);
+void dhcp_gen_packets(uint8_t *packet, uint32_t srcip, uint8_t *dsbuf, struct _dhcpset *ds);
+void arp_gen_packets(unsigned int srcip);
+void icmp_gen_packets(uint8_t *pe, int pe_s, uint8_t *pa, int pa_s, uint8_t *pr, int pr_s);
 
 #endif

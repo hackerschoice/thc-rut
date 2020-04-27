@@ -85,7 +85,7 @@
 # include <sys/wait.h>
 #endif
 #include <libnet.h>
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "network_raw.h"
 #include "dcd_icmp.h"
 #include "arpg.h"
@@ -144,7 +144,8 @@ init_vars()
 	fp = fopen("/proc/sys/net/core/wmem_max", "w+");
 	if (fp)
 	{
-		fgets(buf, sizeof buf, fp);
+		if (fgets(buf, sizeof buf, fp) == NULL)
+			ERREXIT("open(/proc/...wmem_max) = NULL\n");
 		if (atoi(buf) < DFL_WMEM_MAX)
 		{
 			fprintf(stderr, "Setting system wide send buffer limit to %d bytes\n", DFL_WMEM_MAX);

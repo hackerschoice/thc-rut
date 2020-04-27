@@ -1,4 +1,5 @@
 #include "default.h"
+#include "network.h"
 #include "dhcp.h"
 
 
@@ -128,7 +129,7 @@ dhcp_str(unsigned char tag)
  * increase the pointer by len. 
  */
 int
-dhcp_add_option(struct _dhcpset *ds, unsigned char tag, unsigned char len, unsigned char *value)
+dhcp_add_option(struct _dhcpset *ds, unsigned char tag, unsigned char len, char *value)
 {
 
     if (ds->size < ds->lsize+len+2 )
@@ -182,7 +183,7 @@ dhcp_add_suboption(struct _dhcpset *ds, unsigned char value)
 }
 
 int
-build_bootp(char *ptr, unsigned char *chaddr, int clen)
+build_bootp(uint8_t *ptr, unsigned char *chaddr, int clen)
 {
     struct _bootp bp;
 
@@ -226,7 +227,7 @@ init_dhcpset(struct _dhcpset *ds, unsigned char *ptr, unsigned long len)
 }
 
 static int
-dp_dec32UI(char *dbuf, int bs, char *val, unsigned char usz)
+dp_dec32UI(char *dbuf, int bs, void *val, unsigned char usz)
 {
     snprintf(dbuf, bs, "%lu", (unsigned long)ntohl(*(unsigned long *)val));
 
@@ -234,7 +235,7 @@ dp_dec32UI(char *dbuf, int bs, char *val, unsigned char usz)
 }
 
 static int
-dp_dec32I(char *dbuf, int bs, char *val, unsigned char usz)
+dp_dec32I(char *dbuf, int bs, void *val, unsigned char usz)
 {
     snprintf(dbuf, bs, "%ld", (long)ntohl(*(long *)val));
 
@@ -242,7 +243,7 @@ dp_dec32I(char *dbuf, int bs, char *val, unsigned char usz)
 }
 
 static int
-dp_dec16UI(char *dbuf, int bs, char *val, unsigned char usz)
+dp_dec16UI(char *dbuf, int bs, void *val, unsigned char usz)
 {
     snprintf(dbuf, bs, "%u", (unsigned short)ntohs(*(unsigned short *)val));
 
@@ -250,7 +251,7 @@ dp_dec16UI(char *dbuf, int bs, char *val, unsigned char usz)
 }
 
 static int
-dp_dec16I(char *dbuf, int bs, char *val, unsigned char usz)
+dp_dec16I(char *dbuf, int bs, void *val, unsigned char usz)
 {
     snprintf(dbuf, bs, "%u", (short)ntohs(*(short *)val));
 
@@ -258,23 +259,23 @@ dp_dec16I(char *dbuf, int bs, char *val, unsigned char usz)
 }
 
 static int
-dp_dec8UI(char *dbuf, int bs, char *val, unsigned char usz)
+dp_dec8UI(char *dbuf, int bs, void *val, unsigned char usz)
 {
-    snprintf(dbuf, bs, "%u", (unsigned char)*val);
+    snprintf(dbuf, bs, "%u", (unsigned char)*(uint8_t *)val);
 
     return 0;
 }
 
 static int
-dp_dec8I(char *dbuf, int bs, char *val, unsigned char usz)
+dp_dec8I(char *dbuf, int bs, void *val, unsigned char usz)
 {
-    snprintf(dbuf, bs, "%d", (char)*val);
+    snprintf(dbuf, bs, "%d", (char)*(char *)val);
 
     return 0;
 }
 
 static int
-dp_decASCII(char *dbuf, int bs, char *val, unsigned char usz)
+dp_decASCII(char *dbuf, int bs, void *val, unsigned char usz)
 {
     int c = 0;
     const char  trans[] =
@@ -285,13 +286,13 @@ dp_decASCII(char *dbuf, int bs, char *val, unsigned char usz)
                 "........................................";
 
     while (c++ < usz)
-        *dbuf++ = trans[(unsigned char)*val++];
+        *dbuf++ = trans[*(uint8_t *)val++];
 
     return 0;
 }
 
 static int
-dp_decIPV4(char *dbuf, int bs, char *val, unsigned char usz)
+dp_decIPV4(char *dbuf, int bs, void *val, unsigned char usz)
 {
     snprintf(dbuf, bs, "%s", int_ntoa(*(unsigned long *)(val)));
 
@@ -299,7 +300,7 @@ dp_decIPV4(char *dbuf, int bs, char *val, unsigned char usz)
 }
 
 static int
-dp_dec32TIME(char *dbuf, int bs, char *val, unsigned char usz)
+dp_dec32TIME(char *dbuf, int bs, void *val, unsigned char usz)
 {
     unsigned char day=0, hour=0, min=0, sec=0;
     unsigned long l = (unsigned long)ntohl(*(unsigned long *)val);
@@ -325,7 +326,7 @@ dp_dec32TIME(char *dbuf, int bs, char *val, unsigned char usz)
 
 
 static int
-dp_decHEX(char *dbuf, int bs, char *val, unsigned char usz)
+dp_decHEX(char *dbuf, int bs, void *val, unsigned char usz)
 {
     int i = 0, slen = 0;
     unsigned char c;
@@ -333,10 +334,9 @@ dp_decHEX(char *dbuf, int bs, char *val, unsigned char usz)
 
     while (i++ < usz)
     {
-        c = *val++;
+        c = *(uint8_t *)val++;
         if (slen + 3 < bs)
         {
- //           *dbuf++ = ' ';
             *dbuf++ = hex[c / 16];
             *dbuf++ = hex[c % 16];
             slen += 3;
@@ -349,19 +349,19 @@ dp_decHEX(char *dbuf, int bs, char *val, unsigned char usz)
 }
 
 static int
-dp_decBOOL(char *dbuf, int bs, char *val, unsigned char usz)
+dp_decBOOL(char *dbuf, int bs, void *val, unsigned char usz)
 {
 
-    if (*val == 0)
-        snprintf(dbuf, bs, "false(%d)", (unsigned char)*val);
+    if (*(uint8_t *)val == 0)
+        snprintf(dbuf, bs, "false(%d)", *(uint8_t *)val);
     else
-        snprintf(dbuf, bs, "true(%d)", (unsigned char)*val);
+        snprintf(dbuf, bs, "true(%d)", *(uint8_t *)val);
 
     return 0;
 }
 
 static int
-dp_decMAC(char *dbuf, int bs, char *val, unsigned char usz)
+dp_decMAC(char *dbuf, int bs, void *val, unsigned char usz)
 {
     int i = 0, slen = 0;
     unsigned char c;
@@ -369,7 +369,7 @@ dp_decMAC(char *dbuf, int bs, char *val, unsigned char usz)
 
     while (i++ < usz)
     {
-        c = *val++;
+        c = *(uint8_t *)val++;
         if (slen + 3 < bs)
         {
             *dbuf++ = hex[c / 16];
@@ -399,8 +399,8 @@ dp_decMAC(char *dbuf, int bs, char *val, unsigned char usz)
  * can convert the value into a human readable string.
  */
 static char *
-dec_dpval(char *buf, int bs, unsigned char dptype, unsigned char dplen, unsigned char *abuf,
-                 int (*func)(char *, int, char *, unsigned char), unsigned char usz)
+dec_dpval(char *buf, int bs, unsigned char dptype, unsigned char dplen, void *abuf,
+                 int (*func)(char *, int, void *, unsigned char), unsigned char usz)
 {
     unsigned char aoff = 0;
     int slen;
@@ -437,9 +437,9 @@ dhcp_val2str(char *buf, int bsize, unsigned char dptype, unsigned char dplen, un
 {
 #define DBSZ    1024
     unsigned char c;
-    int slen, aoff;
-    unsigned char abuf[255]; /* max of dplen */
-    unsigned char dbuf[DBSZ];   /* max len that 'func' can generate */
+    int slen;
+    uint8_t abuf[255]; /* max of dplen */
+    char dbuf[DBSZ];   /* max len that 'func' can generate */
 
 
     if (buf == NULL)
@@ -458,7 +458,6 @@ dhcp_val2str(char *buf, int bsize, unsigned char dptype, unsigned char dplen, un
         return buf;
     }
 
-    aoff = 0;
     snprintf(buf, bsize, "%s: ", dhcp_str(dptype));
     slen = strlen(buf);
     if (bsize <= slen)
