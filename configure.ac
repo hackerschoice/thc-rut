@@ -116,7 +116,7 @@ dnl yell a warning everytime. Guys, introduce AC_C_BIGENDIAN_CROSS for
 dnl gods sake!
 dnl AC_C_BIGENDIAN
 
-AC_CHECK_FUNCS(gettimeofday memcpy strchr)
+AC_CHECK_FUNCS(gettimeofday memcpy strchr strlcpy)
 dnl FIXME: repair this later
 dnl SNPRINTF=''
 dnl AC_CHECK_FUNC(snprintf, AC_DEFINE(HAVE_SNPRINTF), SNPRINTF='snprintf.o')

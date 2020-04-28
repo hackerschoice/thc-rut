@@ -29,15 +29,15 @@ scanner_gen_packets(void)
 {
 	struct tcphdr *tcp;
 	struct udphdr *udp;
-	struct icmphdr *icmp;
+	struct icmp *icmp;
 
 	tcp = (struct tcphdr *)ip_tcp_sync;
-	tcp->source = htons(opt.src_port);
-	tcp->dest = htons(80);
-	tcp->seq = htonl(0xffffffff - time(NULL));
-	tcp->syn = 1;
-	tcp->window = 5840;
-	tcp->check = 0;
+	tcp->th_sport = htons(opt.src_port);
+	tcp->th_dport = htons(80);
+	tcp->th_seq = htonl(0xffffffff - time(NULL));
+	tcp->th_flags = TH_SYN; //syn = 1;
+	tcp->th_win = 5840;
+	tcp->th_sum = 0;
 
 	/* Port wrapps around every 4096 seconds */
 #if 0
@@ -68,12 +68,12 @@ scanner_gen_packets(void)
 #endif
 
 	tcp = (struct tcphdr *)ip_tcp_fp;
-	tcp->source = htons(opt.src_port + 1);
-	tcp->dest = htons(80);
-	tcp->seq = htonl(0xffffffff - time(NULL) + 1);
-	tcp->syn = 1;
-	tcp->window = 5840;
-	tcp->check = 0;
+	tcp->th_sport = htons(opt.src_port + 1);
+	tcp->th_dport = htons(80);
+	tcp->th_seq = htonl(0xffffffff - time(NULL) + 1);
+	tcp->th_flags = TH_SYN;
+	tcp->th_win = 5840;
+	tcp->th_sum = 0;
 #if 0
 	libnet_build_tcp(opt.src_port + 1,
 			0,
@@ -86,7 +86,7 @@ scanner_gen_packets(void)
 			0, ip_tcp_fp);
 	tcp = (struct tcphdr *)(ip_tcp_fp);
 #endif
-	tcp->doff = (20 + NMAP_FP_TONE_LEN) >> 2;
+	tcp->th_off = (20 + NMAP_FP_TONE_LEN) >> 2;
 	memcpy(ip_tcp_fp + 20, NMAP_FP_TONE, NMAP_FP_TONE_LEN);
 #if 0
 	libnet_build_ip(LIBNET_TCP_H + NMAP_FP_TONE_LEN,
@@ -103,8 +103,8 @@ scanner_gen_packets(void)
 #endif
 
 	udp = (struct udphdr *)ip_udp_dcebind;
-	udp->source = htons(opt.src_port + 1);
-	udp->len = htons(FP_DCEBIND_LEN);
+	udp->uh_sport = htons(opt.src_port + 1);
+	udp->uh_ulen = htons(FP_DCEBIND_LEN);
 	memcpy(ip_udp_dcebind + 8, FP_DCEBIND, FP_DCEBIND_LEN);
 
 #if 0
@@ -129,9 +129,9 @@ scanner_gen_packets(void)
 #endif
 
 	udp = (struct udphdr *)ip_udp_snmp;
-	udp->source = htons(opt.src_port + 1);
-	udp->dest = htons(161);
-	udp->len = htons(FP_SNMP_LEN);
+	udp->uh_sport = htons(opt.src_port + 1);
+	udp->uh_dport = htons(161);
+	udp->uh_ulen = htons(FP_SNMP_LEN);
 #if 0	
 	libnet_build_udp(opt.src_port + 1,
 			161,
@@ -154,9 +154,10 @@ scanner_gen_packets(void)
 			ip_udp_snmp);
 #endif
 
-	icmp = (struct icmphdr *)ip_icmp_echo;
-	icmp->type = ICMP_ECHO;		/* 8 */
-	icmp->un.echo.id = 31338; //htons(getpid());
+	icmp = (struct icmp *)ip_icmp_echo;
+	icmp->icmp_type = ICMP_ECHO;		/* 8 */
+	//icmp->un.echo.id = 31338; //htons(getpid());
+	icmp->icmp_hun.ih_idseq.icd_id = opt.ic_id;
 #if 0
 	libnet_build_icmp_echo(8,
 			0,

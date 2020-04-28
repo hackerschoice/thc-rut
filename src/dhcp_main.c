@@ -340,14 +340,14 @@ dhcp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 	if (vrfy_udp(udp, len) != 0)
 		return;
 
-	if (udp->dest != htons(68))
+	if (udp->uh_dport != htons(68))
 		return;
 
 	if (bp->op != BOOTP_REPLY)
 		return;
 
-	if (len > ntohs(udp->len))
-		len = ntohs(udp->len);
+	if (len > ntohs(udp->uh_ulen))
+		len = ntohs(udp->uh_ulen);
 
 	if (len < sizeof(struct _bootp) + 8)
 		return;  /* Empty BOOTP message */
