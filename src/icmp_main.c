@@ -331,11 +331,11 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 			/* ttl= time= xx.yyy msec */
 			printf("%-16s %d bytes reply icmp_seq=%d ttl=%03d time=", int_ntoa(ip->ip_src.s_addr), 20 + options + len, ntohs(icmp->icmp_hun.ih_idseq.icd_seq), ip->ip_ttl);
 			if (diff.tv_sec)
-				printf("%ld.%03d sec\n", diff.tv_sec, diff.tv_usec / 1000);
+				printf("%ld.%03d sec\n", (long int)diff.tv_sec, diff.tv_usec / 1000);
 			else if (diff.tv_usec / 1000)
-				printf("%d.%03d msec\n", diff.tv_usec / 1000, diff.tv_usec % 1000);
+				printf("%ld.%03d msec\n", (long int)diff.tv_usec / 1000, diff.tv_usec % 1000);
 			else
-				printf("%d usec\n", diff.tv_usec % 1000);
+				printf("%ld usec\n", (long int)diff.tv_usec % 1000);
 		}
 		goto end;
 	}

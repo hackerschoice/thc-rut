@@ -91,8 +91,16 @@ init_pcap(char *device, int promisc, char *filter, long *net, long *bcast, int *
 	 * network.
 	 */
 	if (!device)
+	{
+		pcap_if_t *ifcs;
+		if (pcap_findalldevs(&ifcs, err_buf) == -1)
+			PCAPERREXIT("pcap_findalldevs()");
+		device = ifcs->name;
+#if 0
 		if (!(device = pcap_lookupdev(err_buf)))
 			PCAPERREXIT("pcap_lookupdev");
+#endif
+	}
 	if ((net) || (bcast))
 	{
 		if (pcap_lookupnet(device, &network, &netmask, err_buf) < 0)
