@@ -40,8 +40,6 @@ struct _spfip
 struct _opt
 {
 	libnet_t *ln_ctx;
-	//libnet_ptag_t ln_arp;
-	//libnet_ptag_t ln_eth;
 	pcap_t *ip_socket;
 	int dlt_len;
 	long hosts_parallel; /* how many hosts at the same time */
@@ -50,17 +48,18 @@ struct _opt
 	long bcast; /* broadcast address in HBO */
 	uint32_t src_ip; /* NBO */
 	int dst_ip;
-	unsigned short src_port;
-	unsigned short ip_id;  /* IP id field we sniff for */
+	uint8_t dst_mac[6];
+	uint16_t src_port;
+	uint16_t ip_id;  /* IP id field we sniff for */
+	uint16_t ic_id;  /* ICMP id field we sniff for */
 	char *macrangestr;
 	struct libnet_link_int  *network;
-	unsigned int flags;
+	uint32_t flags;
 	char **argvlist;
 	int argc;
 	pid_t childpid;
 	struct _ipranges ipr;
 	struct _state_queue sq;
-	//int rawsox;
 	struct _nmap_osfp osfp;
 	struct _fp_testsuite fpts;
 };
@@ -74,12 +73,14 @@ struct _opt
 #define OPT_BARP            0x40
 #define OPT_ICMPRS		(0x80)
 #endif
+#define FL_OPT_SRC_IP_ISSET	(0x80)
 #define FL_OPT_HOSTDISCOVERY	(0x100)
 #define FL_OPT_FP		(0x200)
 #define FL_OPT_VERBOSE		(0x400)
 #define FL_OPT_SPOOFMAC		(0x800)
 #define FL_OPT_BINOUT		(0x1000)
 #define FL_OPT_SPREADMODE	(0x2000)
+#define FL_OPT_RANDMAC		(0x4000)
 
 
 struct _lnet

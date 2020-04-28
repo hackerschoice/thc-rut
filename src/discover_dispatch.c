@@ -1572,7 +1572,7 @@ scanner_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		return;
 
 	memcpy(&l, packet + opt.dlt_len + 12, 4);
-	if (!(state = STATE_by_ip(&opt.sq, ntohl(l))))
+	if (!(state = STATE_by_ip(&opt.sq, l)))
 		return;
 
 	state->reschedule = 0;

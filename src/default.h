@@ -70,4 +70,11 @@ char *strchr (), *strrchr ();
 } while (0)
 
 
+# define HEXDUMP(a, len)        do { \
+        int n = 0; \
+        fprintf(stderr, "%s:%d HEX ", __FILE__, __LINE__); \
+        while (n < len) fprintf(stderr, "%2.2x", ((unsigned char *)a)[n++]); \
+        fprintf(stderr, "\n"); \
+} while (0)
+
 #endif /* !__THCRUT_DEFAULT_H__ */

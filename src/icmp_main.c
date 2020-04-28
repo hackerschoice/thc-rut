@@ -20,11 +20,7 @@ static void usage(void);
 static void icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet);
 static void dis_timeout(struct _state *state);
 static void cb_filter(void);
-static size_t sendicmp(struct _state_icmp *state, uint8_t *data, size_t len);
-
-static uint8_t packet_echo[8 + 8];
-static uint8_t packet_amask[8 + 4];
-static uint8_t packet_rsol[8];
+static size_t sendicmp(struct _state_icmp *, size_t len);
 
 #define DFL_HOSTS_PARALLEL	(200)
 
@@ -33,10 +29,13 @@ static uint8_t packet_rsol[8];
 #define STATE_ICMPII	(2)
 #define STATE_ICMPIII	(3)
 
-//extern libnet_t rawsox;
 extern struct _opt opt;
 
 static libnet_ptag_t ln_ip;
+static libnet_ptag_t ln_echo;
+static libnet_ptag_t ln_tstamp;
+static libnet_ptag_t ln_amask;
+static libnet_ptag_t ln_rsol;
 
 static void
 init_defaults(void)
@@ -56,8 +55,6 @@ init_vars(void)
 		fprintf(stderr, "socket: %s\n", strerror(errno));
 		exit(-1);
 	}
-
-	icmp_gen_packets(packet_echo, sizeof packet_echo, packet_amask, sizeof packet_amask, packet_rsol, sizeof packet_rsol);
 }
 
 static void
@@ -66,7 +63,8 @@ usage(void)
 	fprintf(stderr, ""
 "usage: icmp [options] [IP range] ...\n"
 " -P            ICMP echo request (default)\n"
-" -A            ICMP Address mask request (default)\n"
+" -T            ICMP Timestamp Request (obsolete)\n"
+" -A            ICMP Address mask request (obsolete)\n"
 " -R            ICMP MCAST Router solicitation request\n"
 /* Spoofing not possible because we dont reply to arp requests */
 //" -s <ip>       Source ip to use\n"
@@ -83,7 +81,7 @@ do_getopt(int argc, char *argv[], struct _state_icmp *state)
 	int c;
 
 	optind = 1;
-	while ( (c = getopt(argc, argv, "+PARh:l:")) != -1)
+	while ( (c = getopt(argc, argv, "+TPARh:l:")) != -1)
 	{
 		switch (c)
 		{
@@ -92,6 +90,9 @@ do_getopt(int argc, char *argv[], struct _state_icmp *state)
 			break;
 		case 'A':
 			state->flags |= FL_ST_AMASK;
+			break;
+		case 'T':
+			state->flags |= FL_ST_TREQ;
 			break;
 		case 'R':
 			state->flags |= FL_ST_RSOL;
@@ -111,8 +112,8 @@ do_getopt(int argc, char *argv[], struct _state_icmp *state)
 	if (opt.argc <= 0)
 		usage();
 
-	if (!(state->flags & (FL_ST_ECHO | FL_ST_AMASK | FL_ST_RSOL)))
-		state->flags |= FL_ST_AMASK | FL_ST_ECHO;
+	if (!(state->flags & (FL_ST_ECHO | FL_ST_AMASK | FL_ST_RSOL | FL_ST_TREQ)))
+		state->flags |= FL_ST_ECHO;
 }
 
 /*
@@ -124,8 +125,7 @@ do_getopt(int argc, char *argv[], struct _state_icmp *state)
 static int
 sendpackets(struct _state_icmp *state, unsigned int seq)
 {
-	struct icmp *icmp;
-	struct timeval *tv;
+	struct timeval tv;
 
 	if (state->flags == 0)
 	{
@@ -133,27 +133,85 @@ sendpackets(struct _state_icmp *state, unsigned int seq)
 		abort();
 	}
 
+	gettimeofday(&tv, NULL);
 
 	if (state->flags & FL_ST_ECHO)
 	{
-		icmp = (struct icmp *)(packet_echo);
-		icmp->icmp_hun.ih_idseq.icd_seq = htons(seq);
-		tv = (struct timeval *)(packet_echo + 8);
-		gettimeofday(tv, NULL);
-		if (sendicmp(state, packet_echo, sizeof packet_echo) == 0)
-			return 0;
-	}
-	if (state->flags & FL_ST_AMASK)
-	{
-		icmp = (struct icmp *)(packet_amask);
-		icmp->icmp_hun.ih_idseq.icd_seq = htons(seq);
-		if (sendicmp(state, packet_amask, sizeof packet_amask) == 0)
+		ln_echo = libnet_build_icmpv4_echo(ICMP_ECHO,
+		0,
+		0, /* crc */
+		opt.ic_id,
+		seq, /* HBO */
+		(uint8_t *)&tv,
+		sizeof tv,
+		opt.ln_ctx,
+		ln_echo);
+
+		if (sendicmp(state, LIBNET_ICMPV4_ECHO_H + sizeof tv) == 0)
 			return 0;
 	}
 
-	if (state->flags & FL_ST_RSOL)
-		if (sendicmp(state, packet_rsol, sizeof packet_rsol) == 0)
+	if (state->flags & FL_ST_TREQ)
+	{
+		uint32_t ms;
+		ms = ((tv.tv_sec * 1000) + (tv.tv_usec / 1000)) % (24*60*60*1000);
+		ln_tstamp = libnet_build_icmpv4_timestamp(ICMP_TSTAMP,
+		0,
+		0, /* crc */
+		opt.ic_id,
+		seq, /* HBO */
+		ms,	/* otime */
+		0,	/* rtime */
+		0,	/* ttime */
+		NULL,
+		0,
+		opt.ln_ctx,
+		ln_tstamp);
+
+		if (sendicmp(state, LIBNET_ICMPV4_TS_H) == 0)
 			return 0;
+	}
+#if 1
+	/* Almost no routers/hosts answer to this request any longer... */
+	if (state->flags & FL_ST_AMASK)
+	{
+		uint32_t amask = 0;
+
+		ln_amask = libnet_build_icmpv4_mask(ICMP_MASKREQ,
+		0,
+		0, /* crc */
+		opt.ic_id,
+		seq, /* HBO */
+		amask,
+		NULL,
+		0,
+		opt.ln_ctx,
+		ln_amask);
+
+		if (sendicmp(state, LIBNET_ICMPV4_MASK_H) == 0)
+			return 0;
+	}
+#endif
+
+#if 1
+	if (state->flags & FL_ST_RSOL)
+	{
+		/* Libnet has no support for RSOL so we hack it into ECHO */
+		ln_rsol = libnet_build_icmpv4_echo(ICMP_ROUTERSOLICIT, 
+		0,
+		0, /* crc */
+		0, /* rsol, reserved */
+		0, /* rsol, reserved */
+		NULL,
+		0,
+		opt.ln_ctx,
+		ln_rsol);
+
+		if (sendicmp(state, 8 + 0) == 0)
+			return 0;
+	}
+#endif
+
 	return 1;
 }
 
@@ -211,31 +269,22 @@ cb_filter(void)
  * Return number 0 if blocked, -1 on error >0 otherwise.
  */
 static size_t
-sendicmp(struct _state_icmp *state, uint8_t *data, size_t len)
+sendicmp(struct _state_icmp *state, size_t len)
 {
-#if 0
-	struct ip *ip = (struct ip *)(data);
-
-	ip->ip_dst.s_addr = htonl(STATE_ip(state));
-	DEBUGF("ip len= %d\n", ntohs(ip->ip_len));
-#endif
-
 	ln_ip  = libnet_build_ipv4(
-		/*LIBNET_ICMPV4_H + */len,
+		LIBNET_ICMPV4_H + len,
 		0,
-		31337,
+		opt.ip_id,
 		0,
 		128,
 		IPPROTO_ICMP,
 		0,
 		opt.src_ip,
 		STATE_ip(state),
-		data,
-		len,
+		NULL,
+		0,
 		opt.ln_ctx,
 		ln_ip);
-
-	/* ICMP checksum is mandatory. FIXME  */
 
 	return net_send(opt.ln_ctx);
 }
@@ -264,7 +313,7 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 	memcpy(buf, packet + opt.dlt_len, len);
 	if (vrfy_ip(ip, len, &options) != 0)
 		return;
-	if (!(state = (struct _state_icmp *)STATE_by_ip(&opt.sq, ntohl(ip->ip_src.s_addr))))
+	if (!(state = (struct _state_icmp *)STATE_by_ip(&opt.sq, ip->ip_src.s_addr)))
 		return;
 
 	if (ntohs(ip->ip_len) > len)
@@ -290,7 +339,7 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		}
 		goto end;
 	}
-	if ((icmp->icmp_type == 18) && (len >= 8 + 4))
+	if ((icmp->icmp_type == ICMP_MASKREPLY) && (len >= 8 + 4))
 	{
 		if (state->flags & FL_ST_AMASK)
 		{
@@ -300,7 +349,17 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		}
 		goto end;
 	}
-	if (icmp->icmp_type == 9)
+	if (icmp->icmp_type == ICMP_TSTAMPREPLY)
+	{
+		if (state->flags & FL_ST_TREQ)
+		{
+			state->flags &= ~FL_ST_TREQ;
+			printf("%-16s %d bytes reply time request\n", int_ntoa(ip->ip_src.s_addr), 20 + options + len);
+		}
+
+		goto end;
+	}
+	if (icmp->icmp_type == ICMP_ROUTERADVERT)
 	{
 		if (state->flags & FL_ST_RSOL)
 		{
@@ -331,6 +390,7 @@ icmp_main(int argc, char *argv[])
 	memset(&state, 0, sizeof state);
 	do_getopt(argc, argv, &state);
 	init_vars();
+
 	IP_init(&ipr, opt.argvlist,  (opt.flags & FL_OPT_SPREADMODE)?IPR_MODE_SPREAD:0);
 
 	if (!SQ_init(&opt.sq, opt.hosts_parallel, sizeof state, pcap_fileno(opt.ip_socket), dis_timeout, cb_filter))
@@ -344,7 +404,7 @@ icmp_main(int argc, char *argv[])
 		IP_next(&ipr);
 		if (IP_current(&ipr))
 		{
-			STATE_ip(&state) = IP_current(&ipr);
+			STATE_ip(&state) = htonl(IP_current(&ipr));
 			ret = STATE_wait(&opt.sq, (struct _state *)&state);
 		} else
 			ret = STATE_wait(&opt.sq, NULL);

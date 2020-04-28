@@ -74,7 +74,7 @@ send_arp(u_short proto, u_long spf_sip, u_char spf_smac[6], u_long spf_dip, u_ch
 
 	c = libnet_write(opt.ln_ctx);
 
-	if (c < LIBNET_ETH_H + LIBNET_ARP_H)
+	if (c == -1)
 		ERREXIT("libnet_write() = %d, %s\n", c, libnet_geterror(opt.ln_ctx));
 
 	return 0;

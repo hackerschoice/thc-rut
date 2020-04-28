@@ -123,8 +123,11 @@
 #define DHCP_CLASSID    60
 #define DHCP_CLIENTID   61
 
+#define DHCP_TFTP	66
+#define DHCP_BOOTF	67
+
 #define DHCP_END        255
-#define DHCP_MAXTAG     61
+#define DHCP_MAXTAG     67
 
 #define DHCP_MAGICCOOKIE         "\x63\x82\x53\x63"
 #define DHCP_MIN_OPT        312
@@ -176,18 +179,18 @@ struct _dhcpset
  */
 struct _bootp
 {
-    unsigned char      op;         /* req;*/
-    unsigned char      htype;      /* 1 = 10mbit */
-    unsigned char      hlen;       /* ethernet = 6 */
-    unsigned char      hops;       /* 0 */
-    unsigned long      xid;        /* xid from client, should be != 0 */
-    unsigned short     secs;       /* 0 (?) */
-    unsigned short     flags;      /* [B| MBZ ] */
-    unsigned int       ciaddr;     /* */
-    unsigned int       yiaddr;     /* <- ip address offered to client */
-    unsigned int       siaddr;     /* ip address of next bootstrap server */
-    unsigned int       giaddr;     /* 0 */
-    unsigned char      chaddr[16]; /* chaddr from client DHCPDISCOVER */
+    uint8_t            op;         /* req == 1;*/
+    uint8_t            htype;      /* 1 = Ethernet */
+    uint8_t            hlen;       /* ethernet = 6 */
+    uint8_t            hops;       /* 0 */
+    uint32_t           xid;        /* xid from client, should be != 0 */
+    uint16_t           secs;       /* 0 (?) */
+    uint16_t           flags;      /* [B| MBZ ] */
+    uint32_t           ciaddr;     /* Client IP address (0.0.0.0) */
+    uint32_t           yiaddr;     /* <- ip address offered to client */
+    uint32_t           siaddr;     /* ip address of next bootstrap server */
+    uint32_t           giaddr;     /* 0 */
+    uint8_t            chaddr[16]; /* chaddr from client DHCPDISCOVER */
     char        sname[4*16];/* Server host name or options */
     char        file[8*16]; /* Client boot file name or options */
     uint8_t	options[0];
@@ -197,9 +200,10 @@ const char *dhcp_str(unsigned char);
 int init_dhcpset(struct _dhcpset *, unsigned char *, unsigned long len);
 int dhcp_add_option(struct _dhcpset *, unsigned char tag, unsigned char len, char *value);
 int dhcp_add_suboption(struct _dhcpset *, unsigned char);
-int build_bootp(uint8_t *, unsigned char *, int);
+int build_bootp(uint8_t *);
 char *dhcp_val2str(char *, int, unsigned char, unsigned char, unsigned char *);
 struct _dhcpnfoset *dhcp_getnfoset(void);
 void dhcp_set_default(struct _dhcpset *ds);
+void dhcp_set_all(struct _dhcpset *ds);
 
 #endif /* !THCRUT_DHCP_H */

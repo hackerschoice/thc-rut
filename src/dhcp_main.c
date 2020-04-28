@@ -32,8 +32,6 @@
 extern struct _opt opt;
 static void dhcp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet);
 
-//static struct _lnet lnet;
-//static struct _bmac bmac;
 static struct _dhcpset ds;
 static uint8_t dsbuf[1024];
 static uint8_t payload[1024];
@@ -75,25 +73,28 @@ static int
 do_dhcp(uint32_t dstip)
 {
 	int c;
-	//struct ip *ip = (struct ip *)(packet + LIBNET_ETH_H);
 	struct _bootp *bp = (struct _bootp *)(payload);
+
+	/* For every request we may pick a random source mac */
+	if (opt.flags & FL_OPT_RANDMAC)
+		MAC_gen_pseudo(srcmac);
 
 	memcpy(bp->chaddr, srcmac, ETH_ALEN);
 
 	ln_udp = libnet_build_udp(68,
 		67,
-		LIBNET_UDP_H + ds.lsize,
+		LIBNET_UDP_H + sizeof (struct _bootp) + ds.lsize,
 		0,
-		dsbuf,
-		ds.lsize,
+		payload,
+		sizeof (struct _bootp) + ds.lsize,
 		opt.ln_ctx,
 		ln_udp);
 
-	ln_ip = libnet_build_ipv4(0 /* total length ip + payload*/,
-		0,	/* TOS */
-		7350,	/* IP ID */
-		0,	/* frags */
-		128, 	/* TTL */
+	ln_ip = libnet_build_ipv4(LIBNET_IPV4_H + LIBNET_UDP_H + sizeof (struct _bootp) + ds.lsize,
+		0,		/* TOS */
+		opt.ip_id,	/* IP ID */
+		0,		/* frags */
+		128, 		/* TTL */
 		IPPROTO_UDP,
 		0,
 		opt.src_ip,
@@ -103,19 +104,14 @@ do_dhcp(uint32_t dstip)
 		opt.ln_ctx,
 		ln_ip);
 
-	ln_eth = libnet_build_ethernet(ETHBCAST,
+	ln_eth = libnet_build_ethernet(opt.dst_mac,
 		srcmac,
 		ETHERTYPE_IP,
 		NULL, 0, opt.ln_ctx, ln_eth);
 	
-	//len = LIBNET_ETH_H + LIBNET_IP_H + LIBNET_UDP_H + DHCP_MIN_OPT;
-	//ip->ip_len = htons(len - LIBNET_ETH_H);
-	//ip->ip_dst.s_addr = htonl(dstip);
-	//libnet_do_checksum(packet + LIBNET_ETH_H, IPPROTO_IP, LIBNET_IP_H);
-	//c = libnet_write_link_layer(opt.network, opt.device, packet, len);
 	c = libnet_write(opt.ln_ctx);
 
-	if (c <= 0)
+	if (c == -1)
 		ERREXIT("libnet_write() = %d: %s\n", c, libnet_geterror(opt.ln_ctx));
 
 	return 0;
@@ -124,17 +120,20 @@ do_dhcp(uint32_t dstip)
 static void
 init_vars(void)
 {
-	//struct ip *ip;
-
 	opt.ip_socket = init_pcap(opt.device, 1, "udp and dst port 68", NULL, NULL, &opt.dlt_len);
-	opt.ln_ctx = init_libnet(opt.device);
-	//packet = (buf_packet + 2); /* IP header should be aligned */
-	//ip = (struct ip *)(packet + LIBNET_ETH_H);
+	opt.ln_ctx = init_libnet(opt.device, &opt.src_ip);
 
-	//if (libnet_init_packet(MAX_PAYLOAD_SIZE, &lnet.packet) == -1)
-	//	libnet_error(LIBNET_ERR_FATAL, "libnet_init_packet failed\n");
+	struct libnet_ether_addr *hw;
+	hw = libnet_get_hwaddr(opt.ln_ctx);
+	if (hw == NULL)
+		ERREXIT("libnet_get_hewaddr: %s\n", libnet_geterror(opt.ln_ctx));
+
+	/* Random mac: Randomize last 4 octets. */
+	if ((opt.flags & FL_OPT_RANDMAC) || (!(opt.flags & FL_OPT_SPOOFMAC)))
+		memcpy(srcmac, hw->ether_addr_octet, ETH_ALEN);
 
 	dhcp_gen_packets(payload, opt.src_ip, dsbuf, &ds);
+	//HEXDUMP(payload, sizeof (struct _bootp));
 }
 
 static void
@@ -158,9 +157,10 @@ usage(void)
 " -l <n>              Hosts in parallel (%d)\n"
 /*" -s <IP>             source IP (%s)\n" */
 " -v                  vebose\n"
-" -m <mac>            source mac (random: %s)\n"
-" -D <val1[,val2]>    DHCP option, 0=List DHCP options\n"
-"", DFL_HOSTS_PARALLEL, val2mac(srcmac));
+" -m <mac>            source mac (interace's default or -m 0 for random)\n"
+" -d <mac>            destination mac (default: broadcast)\n"
+" -D <val1[,val2]>    DHCP option, 0=List DHCP options, all=ALL (!)\n"
+"", DFL_HOSTS_PARALLEL);
 
 	exit(0);
 }
@@ -168,7 +168,7 @@ usage(void)
 static void
 init_defaults(void)
 {
-	MAC_gen_pseudo(srcmac);
+	//MAC_gen_pseudo(srcmac);
 	opt.dst_ip = -1;  /* 255.255.255.255 */
 	//opt.src_ip = 0;   /* 0.0.0.0 */
 	init_dhcpset(&ds, dsbuf, DHCP_MIN_OPT);
@@ -184,7 +184,7 @@ do_getopt(int argc, char *argv[])
 	int dhcp_set = 0;
 
 	optind = 1;
-	while ( (c = getopt(argc, argv, "+vhD:m:")) != -1)
+	while ( (c = getopt(argc, argv, "+vhd:D:m:")) != -1)
 	{
 		switch (c)
 		{
@@ -192,12 +192,17 @@ do_getopt(int argc, char *argv[])
 			opt.flags |= FL_OPT_VERBOSE;
 			break;
 		case 'D':
-			dhcp_set = 1;
+			if (strncmp(optarg, "all", 3) == 0)
+			{
+				dhcp_set = 1;
+				break;
+			}
 			if (atoi(optarg) == 0)
 			{
 				list_dhcp();
 				exit(0);
 			}
+			dhcp_set = 2;
 			while ( (ptr = strchr(optarg, ',')) != NULL)
 			{
 				*ptr++ = '\0';
@@ -212,17 +217,24 @@ do_getopt(int argc, char *argv[])
 			opt.src_ip = inet_addr(optarg);
 			break;
 #endif
+		case 'd':
+			macstr2mac(opt.dst_mac, optarg);
+			break;
 		case 'm':
 			opt.flags |= FL_OPT_SPOOFMAC;
 			macstr2mac(srcmac, optarg);
+			if (memcmp(srcmac, ETHZCAST, 6) == 0)
+				opt.flags |= FL_OPT_RANDMAC;
 			break;
 		default:
 			usage();
 		}
 	}
 
-	if (!dhcp_set)
+	if (dhcp_set == 0)
 		dhcp_set_default(&ds);
+	if (dhcp_set == 1)
+		dhcp_set_all(&ds);
 
 	opt.argvlist = &argv[optind];
 	opt.argc = argc - optind;
@@ -386,7 +398,7 @@ dhcp_main(int argc, char *argv[])
 		IP_next(&ipr);
 		if (IP_current(&ipr))
                 {
-                        STATE_ip(&state) = IP_current(&ipr);
+                        STATE_ip(&state) = htonl(IP_current(&ipr));
                         ret = STATE_wait(&opt.sq, &state);
                 } else  
 			ret = STATE_wait(&opt.sq, NULL);

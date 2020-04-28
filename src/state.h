@@ -21,7 +21,7 @@ struct _state
 {
 	struct _state *next;  /* hash */
 	struct _state *prev;  /* hash */
-	unsigned int ip;  /* HBO */
+	uint32_t ip;  /* NBO */
 	unsigned char current:7;  /* Up to 32 different states */
 	unsigned char reschedule:1;  /* Up to 15 seconds delay */
 	/*

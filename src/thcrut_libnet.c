@@ -8,7 +8,7 @@
 #define int_ntoa(x) inet_ntoa(*((struct in_addr *)&(x)))
 
 libnet_t *
-init_libnet(char *device/*, int *ip*/)
+init_libnet(char *device, uint32_t *ip)
 {
 	char err_buf[LIBNET_ERRBUF_SIZE];
 	libnet_t *ln_ctx;
@@ -35,11 +35,11 @@ init_libnet(char *device/*, int *ip*/)
 		ERREXIT("libnet_init(): %s\n", err_buf);
 
 
-#if 0
+#if 1
 	if (ip)
 	{
-		if (!*ip)
-			*ip = htonl(libnet_get_ipaddr(network, mydev, err_buf));
+		if (*ip == 0)
+			*ip = libnet_get_ipaddr4(ln_ctx);
 		if (*ip)
 			fprintf(stderr, "thcrut: using source ip %s\n", int_ntoa(*ip));
 	}

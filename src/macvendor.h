@@ -15,8 +15,6 @@ struct _macvendor
 	char    *vendor;
 };
 
-
-int readvendornames(char *);
 char *mac2vendor(unsigned char *tag);
 
 #endif /* !THCRUT_MACVENDOR_H */

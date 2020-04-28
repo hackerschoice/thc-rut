@@ -156,8 +156,7 @@ scanner_gen_packets(void)
 
 	icmp = (struct icmphdr *)ip_icmp_echo;
 	icmp->type = ICMP_ECHO;		/* 8 */
-	icmp->un.echo.id = htons(getpid());
-	icmp->un.echo.sequence = 1;
+	icmp->un.echo.id = 31338; //htons(getpid());
 #if 0
 	libnet_build_icmp_echo(8,
 			0,
@@ -215,7 +214,7 @@ dhcp_gen_packets(uint8_t *packet, uint32_t srcip, uint8_t *dsbuf, struct _dhcpse
 			packet);
 #endif
 
-	build_bootp(packet, ETHZCAST, LIBNET_ETH_H);
+	build_bootp(packet);
 	dhcp_add_option(ds, DHCP_END, 0, NULL);
 	memcpy(packet + sizeof(struct _bootp), dsbuf, ds->lsize);
 }
@@ -246,61 +245,3 @@ arp_gen_packets(unsigned int srcip)
 #endif
 }
 
-void
-icmp_gen_packets(uint8_t *pe, int pe_s, uint8_t *pa, int pa_s, uint8_t *pr, int pr_s)
-{
-	struct icmphdr *icmp;
-
-	icmp = (struct icmphdr *)pe;
-	icmp->type = ICMP_ECHO;
-	icmp->un.echo.id = htons(getpid());
-	icmp->un.echo.sequence = 1;
-
-#if 0
-	libnet_build_icmp_echo(8,
-			0,
-			htons(getpid()), /* we match for this ID! */
-			1,
-			NULL,
-			0,
-			pe);
-#endif
-
-	icmp = (struct icmphdr *)pa;
-	icmp->type = ICMP_ADDRESS;
-	icmp->un.echo.id = htons(getpid());
-	icmp->un.echo.sequence = 1;
-
-#if 0
-	libnet_build_icmp_mask(17,  /* Address Mask request */
-			0,
-			htons(getpid()),
-			1,
-			0,
-			NULL,
-			0,
-			pa);
-#endif
-
-#if 0
-	libnet_build_ip(0,
-			IPTOS_RELIABILITY,
-			opt.ip_id, /* for outgoing ip's only */
-			0,
-			255,
-			IPPROTO_ICMP,
-			opt.src_ip,
-			0 /*dst*/,
-			NULL,
-			0,
-			pe);
-	memcpy(pa, pe, 20);
-	memcpy(pr, pe, 20);
-	((struct ip *)pe)->ip_len = htons(pe_s);
-	((struct ip *)pa)->ip_len = htons(pa_s);
-	((struct ip *)pr)->ip_len = htons(pr_s);
-#endif
-
-	icmp = (struct icmphdr *)pr;
-	icmp->type = ICMP_ROUTERSOLICIT;
-}

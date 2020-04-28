@@ -1,11 +1,13 @@
 #include "default.h"
 #include <ctype.h>
 #include "macvendor.h"
+#include "macvlist.h"
 
 /*
  * this is experimental code. we dont HASH atm.
  * FIXME
  */
+#if 0
 #define HASH_vtag(t1, t2, t3) ((t1+t2+t3)% VTAG_MAX_HASH)
 #define TAG2MYTAG(t) ((t[0]<<8) + (t[1]<<4) + t[2]) 
 
@@ -45,6 +47,7 @@ buf2macvendor(char *buf, unsigned char *tag)
     return ptr;
 }
 
+#endif
 
 /*
  * read in
@@ -77,6 +80,8 @@ buf2macvendor(char *buf, unsigned char *tag)
 int
 readvendornames(char *file)
 {
+	return 0;
+#if 0
 	FILE *fptr = NULL;
 	char buf[256];
 	char *ptr, *ptr2;
@@ -140,6 +145,7 @@ readvendornames(char *file)
 	fclose(fptr);
 
 	return 0;
+#endif
 }
 
 /*
@@ -156,24 +162,32 @@ readvendornames(char *file)
 char *
 mac2vendor(unsigned char *tag)
 {
+	struct _macvendor *mv = &macv_list[0];
+
+	if (tag == NULL)
+		return "";
+	if (mv == NULL)
+		return "";
+
+	while (mv->vendor != NULL)
+	{
+		if ((tag[0] == mv->tag[0]) && (tag[1] == mv->tag[1]))
+			break;
+		mv++;
+	}
+	if (mv->vendor == NULL)
+		return "";
+
+	return mv->vendor;
+	
+#if 0
     struct _i_vendorset *vsptr = i_vendorsetptr;
     struct _i_vendorset vs;
-//    static char buf[128];
-#if 0
-    char *ptr = rbuf;
-#endif
 
 	if (tag == NULL)    /* craqhead ! N0 T4G == N0 RESULTZ */
 		return NULL;
 	if (vsptr == NULL)
 		return NULL;
-
-#if 0
-    if ((rbuf == NULL) && (len > sizeof(buf)-1))
-        len = sizeof(buf)-1;
-    if (rbuf == NULL)
-        ptr = buf;
-#endif
 
 	vs.mytag = TAG2MYTAG(tag);  /* mytag could be opague */
 
@@ -185,15 +199,6 @@ mac2vendor(unsigned char *tag)
 	}
 
  	return vsptr->vendor;
-
-#if 0
-    if (vsptr->vendor == NULL)
-        return NULL;
-
-    strncpy(ptr, vsptr->vendor, len);
-    *(ptr+len-1) = '\0';
-
-    return ptr;
 #endif
 }
 

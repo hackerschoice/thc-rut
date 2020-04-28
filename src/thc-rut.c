@@ -136,6 +136,8 @@ init_vars()
 	srcip.addr = 0;
 	srand(time(NULL));   /* PRNG, we only require weak random */
 
+	memcpy(opt.dst_mac, ETHBCAST, sizeof opt.dst_mac);
+
 	signal_parent_init();
 
 	/*
@@ -168,6 +170,7 @@ init_vars()
 	 */
         opt.src_port = (((tv.tv_sec & 0x1ff) << 3)+ (tv.tv_usec & 0x7))*8 + 1024;
 	opt.ip_id = (unsigned short)(getpid() & 0xffff);
+	opt.ic_id = (uint16_t)(getpid() & 0xffff);
 }
 
 void
@@ -255,6 +258,7 @@ do_getopt(int argc, char *argv[])
 #if 1
 		case 's':
 			opt.src_ip = inet_addr(optarg);
+			opt.flags |= FL_OPT_SRC_IP_ISSET;
 			break;
 #endif
 		case 'i':

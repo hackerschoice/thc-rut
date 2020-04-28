@@ -43,47 +43,23 @@ static uint8_t srcmac[ETH_ALEN];
 static void
 init_vars(void)
 {
-	char buf[1024];
-	char *ptr;
-	struct stat sbuf;
-	char err_buf[LIBNET_ERRBUF_SIZE];
-	struct libnet_ether_addr *hw;
 
 	opt.ip_socket = init_pcap(opt.device, 1, "arp[6:2] = 2", NULL, NULL, &opt.dlt_len);
+
+	opt.ln_ctx = init_libnet(opt.device, &opt.src_ip);
 	/*
 	 * Only listen to replies.
 	 */
 	if (!(opt.flags & FL_OPT_SPOOFMAC))
 	{
-		//hw = libnet_get_hwaddr(opt.network, opt.device, err_buf);
+		struct libnet_ether_addr *hw;
 		hw = libnet_get_hwaddr(opt.ln_ctx);
 		if (!hw)
-		{
-			fprintf(stderr, "libnet_get_hwaddr: %s\n", err_buf);
-			exit(-1);
-		}
+			ERREXIT("libnet_get_hwaddr: %s\n", libnet_geterror(opt.ln_ctx));
 		memcpy(srcmac, hw->ether_addr_octet, ETH_ALEN);
 	}
 
 	arp_gen_packets(opt.src_ip);
-
-	/*
-	 * Try to load mac vendor DB. Ignore if we fail.
-	 */
-	if ( (ptr = getenv("THCRUTDIR")))
-	{
-		snprintf(buf, sizeof buf, "%s/manuf", ptr);
-		readvendornames(buf);
-	} else {
-		snprintf(buf, sizeof buf, "%s/manuf", THCRUT_DATADIR);
-		if (readvendornames(buf) != 0)
-		{
-			if (readvendornames("./manuf") != 0)
-				fprintf(stderr, "Load ./manuf: %s\n", strerror(errno));
-		} else if (stat("./manuf", &sbuf) == 0) {
-			fprintf(stderr, "WARNING: ./manuf exist. Using config file from "THCRUT_DATADIR" for security reasons.\nset THCRUTDIR=. to overwrite.\n");
-		}
-	}
 }
 
 static void
@@ -104,7 +80,6 @@ usage(void)
 static void
 init_defaults(void)
 {
-	opt.ln_ctx = init_libnet(opt.device /*, &opt.src_ip*/);
 	if (opt.hosts_parallel == 0)
 		opt.hosts_parallel = DFL_HOSTS_PARALLEL;
 }
@@ -147,8 +122,6 @@ do_arp(uint32_t ip)
 	//struct ETH_arp *eth_arp = (struct ETH_arp *)(packet + LIBNET_ETH_H);
 	int c;
 
-	ip = htonl(ip);
-
 	ln_arp = libnet_build_arp(ARPHRD_ETHER,
 			ETHERTYPE_IP,
 			6, 4, ARPOP_REQUEST,
@@ -164,7 +137,7 @@ do_arp(uint32_t ip)
 			NULL, 0, opt.ln_ctx, ln_eth);
 
 	c = libnet_write(opt.ln_ctx);
-	if (c != LIBNET_ETH_H + LIBNET_ARP_H)
+	if (c == -1)
 	{
 		ERREXIT("libnet_write() = %d, %s\n", c, libnet_geterror(opt.ln_ctx));
 	}
@@ -219,7 +192,7 @@ arp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		return;
 	memcpy(&l, arp->ar_sip, 4);
 
-	if (!(state = STATE_by_ip(&opt.sq, ntohl(l))))
+	if (!(state = STATE_by_ip(&opt.sq, l)))
 		return;
 
 	ptr = mac2vendor(arp->ar_sha);
@@ -261,7 +234,7 @@ arp_main(int argc, char *argv[])
 		IP_next(&opt.ipr);
 		if (IP_current(&opt.ipr))
 		{
-			STATE_ip(&state) = IP_current(&opt.ipr);
+			STATE_ip(&state) = htonl(IP_current(&opt.ipr));
 			ret = STATE_wait(&opt.sq, &state);
 		} else
 			ret = STATE_wait(&opt.sq, NULL);

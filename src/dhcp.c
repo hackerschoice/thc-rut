@@ -88,6 +88,13 @@ static struct _dhcpnfoset dhcpnfo[] = {
     {DHCP_CLASSID   , DHCP_HEX, "Class-identifier"},
     {DHCP_CLIENTID  , DHCP_HEX, "Client-identifier"},
 
+    {DHCP_PAD       , DHCP_NONE, ""},	/* 62 */
+    {DHCP_PAD       , DHCP_NONE, ""},
+    {DHCP_PAD       , DHCP_NONE, ""},
+    {DHCP_PAD       , DHCP_NONE, ""},
+
+    {DHCP_TFTP      , DHCP_ASCII, "TFTP Server Name"},	/* 66 */
+    {DHCP_BOOTF     , DHCP_ASCII, "Bootfile name"},
 /* EO struct */
     
     {DHCP_END       , DHCP_NONE, "DHCP END MARK"},
@@ -183,7 +190,7 @@ dhcp_add_suboption(struct _dhcpset *ds, unsigned char value)
 }
 
 int
-build_bootp(uint8_t *ptr, unsigned char *chaddr, int clen)
+build_bootp(uint8_t *ptr)
 {
     struct _bootp bp;
 
@@ -192,11 +199,7 @@ build_bootp(uint8_t *ptr, unsigned char *chaddr, int clen)
     bp.htype    = 1;
     bp.hlen = 6;
     bp.xid = rand();
-    bp.secs = htons(9);        /* we try to boot since x seconds */
-    if (clen > sizeof(bp.chaddr))
-        clen = sizeof(bp.chaddr);
-    if (chaddr != NULL)
-        memcpy(bp.chaddr, chaddr, clen);
+	//memcpy(bp.chaddr, ETHZCAST, 6);
     memcpy(ptr, &bp, sizeof(bp));
 
     return 0;
@@ -540,5 +543,21 @@ dhcp_set_default(struct _dhcpset *ds)
 	dhcp_add_suboption(ds, DHCP_NTP);
 	dhcp_add_suboption(ds, DHCP_NBNS);
 	dhcp_add_suboption(ds, DHCP_NBDD);
+}
+
+void
+dhcp_set_all(struct _dhcpset *ds)
+{
+	struct _dhcpnfoset *ptr = &dhcpnfo[1];
+
+	if (ptr == NULL)
+		return;
+
+	while (ptr->tag != DHCP_END)
+	{
+		if (ptr->enctype != DHCP_NONE)
+			dhcp_add_suboption(ds, ptr->tag);
+		ptr++;
+	}
 }
 

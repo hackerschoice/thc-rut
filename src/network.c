@@ -12,13 +12,17 @@
 #include "network.h"
 
 /*
- * We dont want that the MAC changes every few seconds. This might
- * yell an alarm and flood mac watch and others. We just want that
- * it changes every few minutes to evade IDS systems.
  */
 void
 MAC_gen_pseudo(uint8_t *buf)
 {
+	uint32_t r = rand();
+
+	buf[2] = (r >> 24) & 0xFF;
+	buf[3] = (r >> 16) & 0xFF;
+	buf[4] = (r >> 8) & 0xFF;
+	buf[5] = r & 0xFF;
+#if 0
 	long l = time(NULL);
 
 	if (l & 0x100) /* change vendor every 256 seconds */
@@ -29,6 +33,7 @@ MAC_gen_pseudo(uint8_t *buf)
 	buf[3] = (l >> 10) & 0xFF;
 	buf[4] = (l >> 7) & 0xFF;
 	buf[5] = (l >> 9) & 0xFF;
+#endif
 }
 
 /*

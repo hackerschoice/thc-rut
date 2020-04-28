@@ -212,9 +212,9 @@ net_send(libnet_t *ln_ctx)
 #endif
 
 	len = libnet_write(ln_ctx);
-	if (len <= 0)
+	if (len == -1)
 	{
-#if 0
+#if 1
 		/* No arp reply [local netowrk scan] */
 		if (errno == EHOSTDOWN)
 			return -1;

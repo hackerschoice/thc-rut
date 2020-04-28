@@ -64,7 +64,7 @@ launch(struct _ipranges *ipr)
 
 		if (IP_current(ipr))
 		{
-			STATE_ip(state) = IP_current(ipr);
+			STATE_ip(state) = htonl(IP_current(ipr));
 			ret = STATE_wait(&opt.sq, state);
 		} else
 			ret = STATE_wait(&opt.sq, NULL);
