@@ -122,6 +122,7 @@ do_getopt(int argc, char *argv[], struct _state_icmp *state)
 static int
 sendpackets(struct _state_icmp *state, unsigned int seq)
 {
+	uint8_t payload[56];
 	struct timeval tv;
 
 	if (state->flags == 0)
@@ -134,17 +135,20 @@ sendpackets(struct _state_icmp *state, unsigned int seq)
 
 	if (state->flags & FL_ST_ECHO)
 	{
+		memset(payload, 0, sizeof payload);
+		memcpy(payload, &tv, sizeof tv);
+
 		ln_echo = libnet_build_icmpv4_echo(ICMP_ECHO,
 		0,
 		0, /* crc */
 		opt.ic_id,
 		seq, /* HBO */
-		(uint8_t *)&tv,
-		sizeof tv,
+		payload,
+		sizeof payload,
 		opt.ln_ctx,
 		ln_echo);
 
-		if (sendicmp(state, LIBNET_ICMPV4_ECHO_H + sizeof tv) == 0)
+		if (sendicmp(state, LIBNET_ICMPV4_ECHO_H + sizeof payload) == 0)
 			return 0;
 	}
 
@@ -269,7 +273,7 @@ static size_t
 sendicmp(struct _state_icmp *state, size_t len)
 {
 	ln_ip  = libnet_build_ipv4(
-		LIBNET_ICMPV4_H + len,
+		LIBNET_IPV4_H + len,
 		0,
 		opt.ip_id,
 		0,
@@ -326,7 +330,7 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 			tv = (struct timeval *)((char *)icmp + 8);
 			SQ_TV_diff(&diff, tv, &p->ts);
 			/* ttl= time= xx.yyy msec */
-			printf("%-16s %d bytes reply icmp_seq=%d ttl=%03d time=", int_ntoa(ip->ip_src.s_addr), 20 + options + len, ntohs(icmp->icmp_hun.ih_idseq.icd_seq), ip->ip_ttl);
+			printf("%-16s %d bytes reply icmp_seq=%d ttl=%03d time=", int_ntoa(ip->ip_src.s_addr), len, ntohs(icmp->icmp_hun.ih_idseq.icd_seq), ip->ip_ttl);
 			if (diff.tv_sec)
 				printf("%ld.%03ld sec\n", (long int)diff.tv_sec, (long int)diff.tv_usec / 1000);
 			else if (diff.tv_usec / 1000)
@@ -346,12 +350,19 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		}
 		goto end;
 	}
-	if (icmp->icmp_type == ICMP_TSTAMPREPLY)
+	if ((icmp->icmp_type == ICMP_TSTAMPREPLY) && (len >= 8 + 12)) 
 	{
 		if (state->flags & FL_ST_TREQ)
 		{
 			state->flags &= ~FL_ST_TREQ;
-			printf("%-16s %d bytes reply time request\n", int_ntoa(ip->ip_src.s_addr), 20 + options + len);
+			uint32_t ms;
+			/* Extract Receive Timestamp */
+			memcpy(&ms, (char *)icmp + 8 + 4, sizeof ms);
+			ms = ntohl(ms);
+			uint32_t ts_hour = ms / (60 * 60 * 1000);
+			uint32_t ts_min = (ms / 1000 / 60) % 60;
+			float ts_sec = (float)(ms % (60 * 1000)) / 1000;
+			printf("%-16s %d bytes reply time-rec %d hours, %d minutes, %.03f seconds\n", int_ntoa(ip->ip_src.s_addr), len, ts_hour, ts_min, ts_sec);
 		}
 
 		goto end;

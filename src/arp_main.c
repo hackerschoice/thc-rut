@@ -39,6 +39,7 @@ static void do_arp();
 static libnet_ptag_t ln_arp;
 static libnet_ptag_t ln_eth;
 static uint8_t srcmac[ETH_ALEN];
+uint8_t zero[18];	/* We pad to 60 bytes. TEST */
 
 static void
 init_vars(void)
@@ -126,7 +127,7 @@ do_arp(uint32_t ip)
 			(uint8_t *)&opt.src_ip,
 			ETHBCAST,
 			(uint8_t *)&ip, 
-			NULL, 0, opt.ln_ctx, ln_arp);
+			zero, sizeof zero, opt.ln_ctx, ln_arp);
 
 	ln_eth = libnet_build_ethernet(ETHBCAST,
 			srcmac /*ETHZCAST*/,
