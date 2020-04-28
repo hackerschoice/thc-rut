@@ -300,6 +300,16 @@ list_dhcp()
     return 0;
 }
 
+char *
+getmy_range(void)
+{
+        char buf1[64];
+
+        snprintf(buf1, sizeof buf1, "%s", int_ntoa(htonl(opt.net + 1)));
+        snprintf(opt.myrange, sizeof opt.myrange, "%s-%s", buf1, int_ntoa(htonl(opt.bcast - 1)));
+
+        return opt.myrange;
+}
 
 /*
  * Print 1-line status to stderr.

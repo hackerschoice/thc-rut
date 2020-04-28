@@ -10,6 +10,7 @@
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "network.h"
 
 /*
@@ -63,7 +64,6 @@ getmyip_by_dst(int dst)
 	close(sox);
 	return sock.sin_addr.s_addr;
 }
-
 
 #ifndef int_ntoa
 const char *

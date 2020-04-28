@@ -75,10 +75,9 @@ dltlen_get(int type)
 
 /*
  * init sniffer (we need this to read arp-requests to our spoofed address
- * FIXME: return a struct here...
  */
 pcap_t *
-init_pcap(char *device, int promisc, char *filter, long *net, long *bcast, int *dltlen)
+init_pcap(char *device, int promisc, char *filter, uint32_t *net, uint32_t *bcast, int *dltlen)
 {
 	struct bpf_program prog;
 	bpf_u_int32 network, netmask;
@@ -159,4 +158,5 @@ thcrut_pcap_stats(pcap_t *p, struct pcap_stat *ps)
 
 	return 0;
 }
+
 

@@ -44,8 +44,8 @@ struct _opt
 	int dlt_len;
 	long hosts_parallel; /* how many hosts at the same time */
 	char *device;
-	long net;   /* network address in HBO */
-	long bcast; /* broadcast address in HBO */
+	uint32_t net;   /* network address in HBO */
+	uint32_t bcast; /* broadcast address in HBO */
 	uint32_t src_ip; /* NBO */
 	int dst_ip;
 	uint8_t dst_mac[6];
@@ -62,6 +62,7 @@ struct _opt
 	struct _state_queue sq;
 	struct _nmap_osfp osfp;
 	struct _fp_testsuite fpts;
+	char myrange[256];	/* network + 1 .. bcast - 1 */
 };
 #if 0
 #define OPT_RARP            0x01
@@ -133,6 +134,7 @@ void do_signal(int);
 int handle_ip(u_char *, int);
 int handle_arp(u_char *, int);
 int list_dhcp();
+char *getmy_range(void);
 #if 0
 int init_next_macip(char *str, struct _bmac *bmac, struct _bip *bip, char *defaultmac);
 #endif

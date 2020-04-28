@@ -44,7 +44,7 @@ static void
 init_vars(void)
 {
 
-	opt.ip_socket = init_pcap(opt.device, 1, "arp[6:2] = 2", NULL, NULL, &opt.dlt_len);
+	opt.ip_socket = init_pcap(opt.device, 1, "arp[6:2] = 2", &opt.net, &opt.bcast, &opt.dlt_len);
 
 	opt.ln_ctx = init_libnet(opt.device, &opt.src_ip);
 	/*
@@ -108,9 +108,6 @@ do_getopt(int argc, char *argv[])
 
 	opt.argvlist = &argv[optind];
 	opt.argc = argc - optind;
-
-	if (opt.argc <= 0)
-		usage();
 }
 
 /*
@@ -219,6 +216,13 @@ arp_main(int argc, char *argv[])
 	init_defaults();
 	do_getopt(argc, argv);
 	init_vars();
+
+	/* By default do the local network */
+	if (opt.argc == 0)
+	{
+		opt.argvlist--;
+		opt.argvlist[0] = getmy_range();
+	}
 
 	IP_init(&opt.ipr, opt.argvlist, (opt.flags & FL_OPT_SPREADMODE)?IPR_MODE_SPREAD:0);
 

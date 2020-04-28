@@ -5,9 +5,9 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include "thc-rut.h"
+#include "network.h"
 #include "range.h"
 
-#define int_ntoa(x)   inet_ntoa(*((struct in_addr *)&(x)))
 
 void
 IP_dinit(struct _ipranges *ipr)
@@ -113,8 +113,8 @@ next:
 		ipr->total += (end - start + 1);
 	}
 
-	DEBUGF("start: %s\n", int_ntoa(ipr->range->start));
-	DEBUGF("end  : %s\n", int_ntoa(ipr->range->end));
+	DEBUGF("start: %s\n", int_ntoa(htonl(ipr->range->start)));
+	DEBUGF("end  : %s\n", int_ntoa(htonl(ipr->range->end)));
 	/* Set current_ip */
 	IP_range_init(ipr);
 }

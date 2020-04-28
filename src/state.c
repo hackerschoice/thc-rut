@@ -58,7 +58,7 @@ SQ_init(struct _state_queue *sq, unsigned long nitems, size_t item_size, int fd,
 	gettimeofday(&sq->expect, NULL);
 
 	DEBUGF("entries: %ld\n", sq->n_entries);
-	DEBUGF("item_size: %u\n", sq->item_size);
+	DEBUGF("item_size: %lu\n", sq->item_size);
 	DEBUGF("epoch: %ld usec\n", sq->epoch);
 
 	return sq;

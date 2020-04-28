@@ -17,7 +17,7 @@ struct _pcap
 
 #define PCAPBUFSIZE		(1024)
 
-pcap_t *init_pcap(char *device, int promisc, char *filter, long *net, long *bcast, int *dltlen);
+pcap_t *init_pcap(char *device, int promisc, char *filter, uint32_t *net, uint32_t *bcast, int *dltlen);
 int tr_pcap_fileno(void);
 void tr_pcap_dispatch(pcap_handler callback);
 int thcrut_pcap_stats(pcap_t *p, struct pcap_stat *ps);
