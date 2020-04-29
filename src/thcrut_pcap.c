@@ -83,23 +83,41 @@ init_pcap(char *device, int promisc, char *filter, uint32_t *net, uint32_t *bcas
 	bpf_u_int32 network, netmask;
 	pcap_t *ip_socket;
 
-	/* Fucking pcap developer idiots. They changed the behavior
-	 * of pcap_open_live() to open 'any' interface and not
-	 * the first network interface. This basicly fucked up all code
-	 * which relied on the returned bcast to be the bcast of the local
-	 * network.
+	/*
+	 * Find first network interface unless user picked one already.
 	 */
 	if (!device)
 	{
 		pcap_if_t *ifcs;
 		if (pcap_findalldevs(&ifcs, err_buf) == -1)
 			PCAPERREXIT("pcap_findalldevs()");
-		device = ifcs->name;
-#if 0
-		if (!(device = pcap_lookupdev(err_buf)))
-			PCAPERREXIT("pcap_lookupdev");
+		if (ifcs == NULL)
+			return NULL;
+		pcap_if_t *ti = ifcs;
+		while (ifcs != NULL)
+		{
+			ti = ifcs;
+			ifcs = ifcs->next;
+			/* Skipt "nflog" and "nfqueue" interfaces */
+			if (memcmp(ti->name, "nf", 2) == 0)
+				continue;
+			/* Skip loopback interface */
+			if (ti->flags & PCAP_IF_LOOPBACK)
+				continue;
+#ifdef PCAP_IF_UP
+			if (!(ti->flags & PCAP_IF_UP))
+				continue;
 #endif
+#ifdef PCPA_IF_RUNNING
+			if (!(ti->flags & PCAP_IF_RUNNING))
+				continue;
+#endif
+			/* Found active interface. */
+			break;
+		}	
+		device = ti->name;
 	}
+	DEBUGF("device %s\n", device);
 	if ((net) || (bcast))
 	{
 		if (pcap_lookupnet(device, &network, &netmask, err_buf) < 0)

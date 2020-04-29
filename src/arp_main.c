@@ -237,12 +237,19 @@ arp_main(int argc, char *argv[])
 	while (1)
 	{
 		IP_next(&opt.ipr);
+		/* Start again from the begining in "INFINITE" mode */
+		if ((opt.flags & FL_OPT_INFINITE) && (!(IP_current(&opt.ipr))))
+		{
+			IP_reset(&opt.ipr);
+			IP_next(&opt.ipr);
+		}
 		if (IP_current(&opt.ipr))
 		{
 			STATE_ip(&state) = htonl(IP_current(&opt.ipr));
 			ret = STATE_wait(&opt.sq, &state);
-		} else
+		} else {
 			ret = STATE_wait(&opt.sq, NULL);
+		}
 
 		if (ret != 0)
 			break;

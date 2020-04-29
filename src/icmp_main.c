@@ -67,7 +67,7 @@ usage(void)
 	fprintf(stderr, ""
 "usage: icmp [options] [IP range] ...\n"
 " -P            ICMP echo request (default)\n"
-" -T            ICMP Timestamp Request (obsolete)\n"
+" -T            ICMP Timestamp Request\n"
 " -A            ICMP Address mask request (obsolete)\n"
 " -R            ICMP MCAST Router solicitation request\n"
 /* Spoofing not possible because we dont reply to arp requests */
@@ -427,7 +427,6 @@ end:
 int
 icmp_main(int argc, char *argv[])
 {
-	struct _ipranges ipr;
 	struct _state_icmp state;
 	struct pcap_stat ps;
 	int ret;
@@ -444,7 +443,7 @@ icmp_main(int argc, char *argv[])
 		opt.argvlist[0] = getmy_range();
 	}
 
-	IP_init(&ipr, opt.argvlist,  (opt.flags & FL_OPT_SPREADMODE)?IPR_MODE_SPREAD:0);
+	IP_init(&opt.ipr, opt.argvlist,  (opt.flags & FL_OPT_SPREADMODE)?IPR_MODE_SPREAD:0);
 
 	if (!SQ_init(&opt.sq, opt.hosts_parallel, sizeof state, pcap_fileno(opt.ip_socket), dis_timeout, cb_filter))
 	{
@@ -454,10 +453,16 @@ icmp_main(int argc, char *argv[])
 
 	while (1)
 	{
-		IP_next(&ipr);
-		if (IP_current(&ipr))
+		IP_next(&opt.ipr);
+		/* Start again from the begining in "INFINITE" mode */
+		if ((opt.flags & FL_OPT_INFINITE) && (!(IP_current(&opt.ipr))))
 		{
-			STATE_ip(&state) = htonl(IP_current(&ipr));
+			IP_reset(&opt.ipr);
+			IP_next(&opt.ipr);
+		}
+		if (IP_current(&opt.ipr))
+		{
+			STATE_ip(&state) = htonl(IP_current(&opt.ipr));
 			ret = STATE_wait(&opt.sq, (struct _state *)&state);
 		} else
 			ret = STATE_wait(&opt.sq, NULL);

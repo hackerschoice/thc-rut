@@ -353,14 +353,11 @@ dhcp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		return;  /* Empty BOOTP message */
 
 	bootp_print(&ip, bp, len - 8 - sizeof(struct _bootp));
-
-	exit(0); /* exit after first answer we got */
 }
 
 int
 dhcp_main(int argc, char *argv[])
 {
-	struct _ipranges ipr;
 	struct _state state;
 	int ret;
 
@@ -379,7 +376,7 @@ dhcp_main(int argc, char *argv[])
 		opt.argvlist[0] = "255.255.255.255";
 		opt.argc++;
 	}
-	IP_init(&ipr, opt.argvlist,  (opt.flags & FL_OPT_SPREADMODE)?IPR_MODE_SPREAD:0);
+	IP_init(&opt.ipr, opt.argvlist,  (opt.flags & FL_OPT_SPREADMODE)?IPR_MODE_SPREAD:0);
 
 	if (opt.flags & FL_OPT_VERBOSE)
 		show_info();
@@ -392,16 +389,23 @@ dhcp_main(int argc, char *argv[])
 
 	/* Set MAC here */
 	memset(&state, 0, sizeof state);
-
 	while (1)
 	{
-		IP_next(&ipr);
-		if (IP_current(&ipr))
+		IP_next(&opt.ipr);
+		/* Start again from the begining in "INFINITE" mode */
+		if ((opt.flags & FL_OPT_INFINITE) && (!(IP_current(&opt.ipr))))
+		{
+			IP_reset(&opt.ipr);
+			IP_next(&opt.ipr);
+		}
+		if (IP_current(&opt.ipr))
                 {
-                        STATE_ip(&state) = htonl(IP_current(&ipr));
+                        STATE_ip(&state) = htonl(IP_current(&opt.ipr));
                         ret = STATE_wait(&opt.sq, &state);
-                } else  
+                } else { 
+			
 			ret = STATE_wait(&opt.sq, NULL);
+		}
 
 		if (ret != 0)
 			break;

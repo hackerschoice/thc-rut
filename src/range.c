@@ -8,7 +8,6 @@
 #include "network.h"
 #include "range.h"
 
-
 void
 IP_dinit(struct _ipranges *ipr)
 {
@@ -16,6 +15,33 @@ IP_dinit(struct _ipranges *ipr)
 		free(ipr->data);
 	ipr->data = NULL;
 	ipr->range = NULL;
+}
+
+/*
+ * Reset range back the the beginning.
+ */
+void
+IP_reset(struct _ipranges *ipr)
+{
+	//ipr->used = 0;
+	ipr->tot_used = 0;
+	//ipr->ofs = 0;
+	ipr->range = ipr->data;	/* Start with the first range again */
+
+	IP_range_init(ipr);
+}
+
+void
+IP_range_init(struct _ipranges *ipr)
+{
+	ipr->used = 0;
+	ipr->ofs = 0;
+	ipr->next_ip = ipr->range->start;
+	ipr->distance = (ipr->range->end - ipr->range->start) >> 2;
+	if ((ipr->mode != IPR_MODE_SPREAD) || (ipr->distance <= 0))
+		ipr->distance = 1;
+	else if (ipr->distance > 259) 
+		ipr->distance = 259; 
 }
 
 /*
@@ -116,6 +142,8 @@ next:
 	DEBUGF("start: %s\n", int_ntoa(htonl(ipr->range->start)));
 	DEBUGF("end  : %s\n", int_ntoa(htonl(ipr->range->end)));
 	/* Set current_ip */
+	DEBUGF("ipr->data = %p\n", ipr->data);
 	IP_range_init(ipr);
+	DEBUGF("ipr->data = %p\n", ipr->data);
 }
 

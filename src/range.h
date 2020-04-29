@@ -58,115 +58,6 @@ struct _ipranges
  * Reset to start_ip + ofs_base if the new ip is larger then the end_ip and
  * increment ofs_base by +1.
  */
-/*
-#define IP_next(ipr) do{ \
-	char *ptr; \
-	char *split; \
-	char buf[16]; \
-	unsigned char len; \
-	unsigned char splitc; \
-	unsigned char n; \
-	if ((ipr)->used >= (ipr)->end_ip - (ipr)->start_ip) \
-	{ \
-		if ((ipr)->next == NULL) \
-		{ \
-			(ipr)->current_ip = 0; \
-			(ipr)->end_ip = 0; \
-			break; \
-		} \
-		while (*(ipr)->next == ' ') \
-			(ipr)->next++; \
-		ptr = (ipr)->next; \
-		split = NULL; \
-		(ipr)->ofs = 0; \
-		(ipr)->used = 0; \
-		while (1) \
-		{ \
-			if (*(ipr)->next == '-') \
-				split = (ipr)->next; \
-			if (*(ipr)->next == '/') \
-				split = (ipr)->next; \
-			if (*(ipr)->next == ',') \
-				break; \
-			if (!*(ipr)->next) \
-				break; \
-			(ipr)->next++; \
-		} \
-		if (split) \
-		{ \
-			len = MIN(sizeof buf - 1, split - ptr); \
-			memcpy(buf, ptr, len); \
-			buf[len] = '\0'; \
-			splitc = *split; \
-			(ipr)->start_ip = ntohl(inet_addr(buf)); \
-			split++; \
-			while (*split == ' ') \
-				split++; \
-			if (*(ipr)->next) \
-			{ \
-				len = MIN(sizeof buf - 1, (ipr)->next - split); \
-				memcpy(buf, split, len); \
-				buf[len] = '\0'; \
-				split = buf; \
-			} \
-			(ipr)->end_ip = ntohl(inet_addr(split)); \
-			if (splitc == '/') \
-			{ \
-				n = (ipr)->end_ip; \
-				if ((n > 30) || (n == 0)) \
-					n = 32; \
-				(ipr)->start_ip &= ~((1 << (32 - n)) - 1); \
-				(ipr)->end_ip = (ipr)->start_ip + (1 << (32 - n)) - 1; \
-				if (n <= 30) \
-				{ \
-					(ipr)->start_ip++; \
-					(ipr)->end_ip--; \
-				} \
-			} else if ((ipr)->end_ip < (ipr)->start_ip) \
-				(ipr)->end_ip = (ipr)->start_ip + (ipr)->end_ip - 1; \
-		} else { \
-			if (*(ipr)->next) \
-			{ \
-				len = MIN(sizeof buf - 1, (ipr)->next - ptr); \
-				memcpy(buf, ptr, len); \
-				buf[len] = '\0'; \
-				ptr = buf; \
-			} \
-			(ipr)->start_ip = ntohl(inet_addr(ptr)); \
-			(ipr)->end_ip = (ipr)->start_ip; \
-		} \
-		(ipr)->current_ip = (ipr)->start_ip; \
-		(ipr)->distance = ((ipr)->end_ip - (ipr)->start_ip) >> 2; \
-		if ((ipr)->distance <= 0) \
-			(ipr)->distance = 1; \
-		else if ((ipr)->distance > 259) \
-			(ipr)->distance = 259; \
-		if (*(ipr)->next == '\0') \
-		{ \
-			(ipr)->argv++; \
-			(ipr)->next = (ipr)->argv[0]; \
-		} else \
-			(ipr)->next++; \
-	} else { \
-		(ipr)->current_ip += (ipr)->distance; \
-		(ipr)->used++; \
-		if ((ipr)->current_ip > (ipr)->end_ip) \
-			(ipr)->current_ip = (ipr)->start_ip + ++(ipr)->ofs; \
-	} \
-	(ipr)->tot_used++; \
-}while(0)
-*/
-
-#define IP_range_init(ipr) do { \
-	(ipr)->used = 0; \
-	(ipr)->ofs = 0; \
-	(ipr)->next_ip = (ipr)->range->start; \
-	(ipr)->distance = ((ipr)->range->end - (ipr)->range->start) >> 2; \
-	if (((ipr)->mode != IPR_MODE_SPREAD) || ((ipr)->distance <= 0)) \
-		(ipr)->distance = 1; \
-	else if ((ipr)->distance > 259) \
-		(ipr)->distance = 259; \
-} while (0)
 
 #define IP_next(ipr) do { \
 	if ((ipr)->used > (ipr)->range->end - (ipr)->range->start) \
@@ -187,6 +78,9 @@ struct _ipranges
 	(ipr)->tot_used++; \
 } while(0)
 
+
 void IP_init(struct _ipranges *ipr, char *argv[], unsigned char mode);
+void IP_range_init(struct _ipranges *ipr);
+void IP_reset(struct _ipranges *ipr);
 
 #endif /* !THCRUT_RANGE_H */

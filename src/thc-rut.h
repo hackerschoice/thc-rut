@@ -82,6 +82,7 @@ struct _opt
 #define FL_OPT_BINOUT		(0x1000)
 #define FL_OPT_SPREADMODE	(0x2000)
 #define FL_OPT_RANDMAC		(0x4000)
+#define FL_OPT_INFINITE		(0x8000)		/* Infinite Loop */
 
 
 struct _lnet

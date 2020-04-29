@@ -1,7 +1,7 @@
 dnl THCRUT configure.in, anonymous@segfault.net
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
-AC_INIT(src/thc-rut.c, 2.2.4)
+AC_INIT([thc-rut], 2.2.6)
 AC_CONFIG_AUX_DIR(config)
 AC_CANONICAL_SYSTEM
 
@@ -19,7 +19,7 @@ dnl
 dnl Use these compiler flags if we have gcc.
 dnl
 if test $ac_cv_prog_gcc = yes; then
-  CCOPTS='-O2 -Wall'
+  CCOPTS='-O2 -Wall -g'
   CFLAGS="$CCOPTS"
 fi
 test "x$prefix" != "xNONE" || prefix="/usr/local"
