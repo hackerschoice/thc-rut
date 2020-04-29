@@ -20,7 +20,7 @@ static void usage(void);
 static void icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet);
 static void dis_timeout(struct _state *state);
 static void cb_filter(void);
-static size_t sendicmp(struct _state_icmp *, size_t len);
+static size_t sendicmp(struct _state_icmp *, size_t len, libnet_ptag_t *ln_ptag);
 
 #define DFL_HOSTS_PARALLEL	(200)
 
@@ -31,7 +31,11 @@ static size_t sendicmp(struct _state_icmp *, size_t len);
 
 extern struct _opt opt;
 
-static libnet_ptag_t ln_ip;
+static libnet_ptag_t ln_ip_echo;
+static libnet_ptag_t ln_ip_treq;
+static libnet_ptag_t ln_ip_amask;
+static libnet_ptag_t ln_ip_rsol;
+
 static libnet_ptag_t ln_echo;
 static libnet_ptag_t ln_tstamp;
 static libnet_ptag_t ln_amask;
@@ -139,16 +143,16 @@ sendpackets(struct _state_icmp *state, unsigned int seq)
 		memcpy(payload, &tv, sizeof tv);
 
 		ln_echo = libnet_build_icmpv4_echo(ICMP_ECHO,
-		0,
-		0, /* crc */
-		opt.ic_id,
-		seq, /* HBO */
-		payload,
-		sizeof payload,
-		opt.ln_ctx,
-		ln_echo);
+			0,
+			0, /* crc */
+			opt.ic_id,
+			seq, /* HBO */
+			payload,
+			sizeof payload,
+			opt.ln_ctx,
+			ln_echo);
 
-		if (sendicmp(state, LIBNET_ICMPV4_ECHO_H + sizeof payload) == 0)
+		if (sendicmp(state, LIBNET_ICMPV4_ECHO_H + sizeof payload, &ln_ip_echo) == 0)
 			return 0;
 	}
 
@@ -156,20 +160,21 @@ sendpackets(struct _state_icmp *state, unsigned int seq)
 	{
 		uint32_t ms;
 		ms = ((tv.tv_sec * 1000) + (tv.tv_usec / 1000)) % (24*60*60*1000);
-		ln_tstamp = libnet_build_icmpv4_timestamp(ICMP_TSTAMP,
-		0,
-		0, /* crc */
-		opt.ic_id,
-		seq, /* HBO */
-		ms,	/* otime */
-		0,	/* rtime */
-		0,	/* ttime */
-		NULL,
-		0,
-		opt.ln_ctx,
-		ln_tstamp);
 
-		if (sendicmp(state, LIBNET_ICMPV4_TS_H) == 0)
+		ln_tstamp = libnet_build_icmpv4_timestamp(ICMP_TSTAMP,
+			0,
+			0, /* crc */
+			opt.ic_id,
+			seq, /* HBO */
+			ms,	/* otime */
+			0,	/* rtime */
+			0,	/* ttime */
+			NULL,
+			0,
+			opt.ln_ctx,
+			ln_tstamp);
+
+		if (sendicmp(state, LIBNET_ICMPV4_TS_H, &ln_ip_treq) == 0)
 			return 0;
 	}
 #if 1
@@ -179,17 +184,17 @@ sendpackets(struct _state_icmp *state, unsigned int seq)
 		uint32_t amask = 0;
 
 		ln_amask = libnet_build_icmpv4_mask(ICMP_MASKREQ,
-		0,
-		0, /* crc */
-		opt.ic_id,
-		seq, /* HBO */
-		amask,
-		NULL,
-		0,
-		opt.ln_ctx,
-		ln_amask);
+			0,
+			0, /* crc */
+			opt.ic_id,
+			seq, /* HBO */
+			amask,
+			NULL,
+			0,
+			opt.ln_ctx,
+			ln_amask);
 
-		if (sendicmp(state, LIBNET_ICMPV4_MASK_H) == 0)
+		if (sendicmp(state, LIBNET_ICMPV4_MASK_H, &ln_ip_amask) == 0)
 			return 0;
 	}
 #endif
@@ -199,16 +204,16 @@ sendpackets(struct _state_icmp *state, unsigned int seq)
 	{
 		/* Libnet has no support for RSOL so we hack it into ECHO */
 		ln_rsol = libnet_build_icmpv4_echo(ICMP_ROUTERSOLICIT, 
-		0,
-		0, /* crc */
-		0, /* rsol, reserved */
-		0, /* rsol, reserved */
-		NULL,
-		0,
-		opt.ln_ctx,
-		ln_rsol);
+			0,
+			0, /* crc */
+			0, /* rsol, reserved */
+			0, /* rsol, reserved */
+			NULL,
+			0,
+			opt.ln_ctx,
+			ln_rsol);
 
-		if (sendicmp(state, 8 + 0) == 0)
+		if (sendicmp(state, 8 + 0, &ln_ip_rsol) == 0)
 			return 0;
 	}
 #endif
@@ -270,9 +275,9 @@ cb_filter(void)
  * Return number 0 if blocked, -1 on error >0 otherwise.
  */
 static size_t
-sendicmp(struct _state_icmp *state, size_t len)
+sendicmp(struct _state_icmp *state, size_t len, libnet_ptag_t *ln_ptag)
 {
-	ln_ip  = libnet_build_ipv4(
+	*ln_ptag  = libnet_build_ipv4(
 		LIBNET_IPV4_H + len,
 		0,
 		opt.ip_id,
@@ -285,7 +290,7 @@ sendicmp(struct _state_icmp *state, size_t len)
 		NULL,
 		0,
 		opt.ln_ctx,
-		ln_ip);
+		*ln_ptag);
 
 	return net_send(opt.ln_ctx);
 }
@@ -322,6 +327,7 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 	len = ntohs(ip->ip_len) - 20 - options;
 
 	icmp = (struct icmp *)(buf + 20 + options);
+	/* ICMP ECHO REPLY */
 	if (((icmp->icmp_type == 0) && (icmp->icmp_code == 0)) && (len >= 8 + 8))
 	{
 		if (state->flags & FL_ST_ECHO)
@@ -340,6 +346,7 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		}
 		goto end;
 	}
+	/* ICMP MASK REPLY */
 	if ((icmp->icmp_type == ICMP_MASKREPLY) && (len >= 8 + 4))
 	{
 		if (state->flags & FL_ST_AMASK)
@@ -350,6 +357,7 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		}
 		goto end;
 	}
+	/* ICMP TIMESTAMP REPLY */
 	if ((icmp->icmp_type == ICMP_TSTAMPREPLY) && (len >= 8 + 12)) 
 	{
 		if (state->flags & FL_ST_TREQ)
@@ -358,7 +366,11 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 			uint32_t ms;
 			/* Extract Receive Timestamp */
 			memcpy(&ms, (char *)icmp + 8 + 4, sizeof ms);
-			ms = ntohl(ms);
+			//DEBUGF("BE: %u\n", ms);
+			/* BUG: Some host return Little Endian */
+			if (ms > 60 * 60 * 24 * 1000)
+				ms = ntohl(ms);
+			//DEBUGF("LE: %u\n", ms);
 			uint32_t ts_hour = ms / (60 * 60 * 1000);
 			uint32_t ts_min = (ms / 1000 / 60) % 60;
 			float ts_sec = (float)(ms % (60 * 1000)) / 1000;
@@ -367,11 +379,37 @@ icmp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 
 		goto end;
 	}
+	/* ICMP DEST UNREACHABLE
+	 * ICMP Time Stamp Reply may trigger a Dest-unreable by the target
+	 * host. If this is the case then we still want to display the fact
+	 * because it means the host is alive.
+	 */
+	if ((icmp->icmp_type == ICMP_UNREACH) && (icmp->icmp_type == ICMP_UNREACH_PORT) && (len >= 8 + 20 + 8 + 12))
+	{
+		struct ip *ip_orig;
+		ip_orig = (struct ip *)(buf + 20 + options + 8);
+		/* Skip if a router rejects it. We only want to know if the
+		 * original target host is 'alive' but care not about a router
+		 * inbetween
+		 */
+		if (ip_orig->ip_dst.s_addr != ip->ip_src.s_addr)
+			goto end;
+
+		if (state->flags & FL_ST_TREQ)
+		{
+				state->flags &= ~FL_ST_TREQ;
+				printf("%-16s %d bytes reply time-rec not supported (unreachable. Host alive.)\n", int_ntoa(ip->ip_src.s_addr), len);
+		}
+
+		goto end;
+	}
+
+	/* ICMP ROUTE RSOL REPLY */
 	if (icmp->icmp_type == ICMP_ROUTERADVERT)
 	{
 		if (state->flags & FL_ST_RSOL)
 		{
-			state->flags &= FL_ST_RSOL;
+			state->flags &= ~FL_ST_RSOL;
 			printf("%s ROUTER SOLICITATION. DECODING NOT IMPLEMENTED. FIXME\n", int_ntoa(ip->ip_src.s_addr));
 		}
 		goto end;

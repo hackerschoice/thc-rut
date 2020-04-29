@@ -202,6 +202,7 @@ net_sock_raw(void)
  * This function can exit.
  *
  * Return -1 on error. Return 0 if would_block.
+ * Note: I dont think we ever return 0 here (blocking)...
  */
 size_t
 net_send(libnet_t *ln_ctx)
@@ -259,7 +260,7 @@ net_send(libnet_t *ln_ctx)
 			full_once = 1;
 		}
 #endif
-		return 0;
+		return -1; /* We never 'would block */
 	}
 
 	return len;
