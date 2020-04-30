@@ -31,7 +31,7 @@ MacVendor_by_mac(uint8_t *mac)
 	uint32_t end_loc = sizeof macvendorlist / sizeof *macvendorlist - 1;
 	uint64_t top_mid;
 	uint64_t end_mid;
-	uint32_t loc;
+	uint32_t loc = 0;
 	while (1)
 	{
 		//DEBUGF("top_loc %d, end_loc %d\n", top_loc, end_loc);
