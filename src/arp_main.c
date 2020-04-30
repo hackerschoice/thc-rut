@@ -30,7 +30,7 @@
 #define STATE_ARPII	(2)
 #define STATE_ARPIII	(3)
 
-#define DFL_HOSTS_PARALLEL	(100)
+#define DFL_HOSTS_PARALLEL	(256)
 
 extern struct _opt opt;
 static void arp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet);

@@ -142,6 +142,15 @@ AC_ARG_ENABLE(debug,
 	AC_DEFINE(DEBUG, 1, [Debug infos])
 )
 
+AC_ARG_ENABLE(static,
+[  --enable-static          Compile static binary],
+        [STATIC="yes"], [STATIC="no"]
+)
+
+if test x"$STATIC" = x"yes"; then
+	CFLAGS="-static ${CFLAGS}"
+fi
+
 AC_ARG_ENABLE(dist,
 [  --enable-dist           Enable distribution mode, Use own libraries.],
 	[DIST="yes"], [DIST="no"]

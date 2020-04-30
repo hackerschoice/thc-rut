@@ -22,7 +22,7 @@ static void dis_timeout(struct _state *state);
 static void cb_filter(void);
 static size_t sendicmp(struct _state_icmp *, size_t len, libnet_ptag_t *ln_ptag);
 
-#define DFL_HOSTS_PARALLEL	(200)
+#define DFL_HOSTS_PARALLEL	(1024)
 
 #define STATE_RESET	(0)
 #define STATE_ICMPI	(1)
