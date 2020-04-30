@@ -1,7 +1,7 @@
 dnl THCRUT configure.in, anonymous@segfault.net
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
-AC_INIT([thc-rut], 2.2.6)
+AC_INIT([thc-rut], 2.2.6-rc1)
 AC_CONFIG_AUX_DIR(config)
 AC_CANONICAL_SYSTEM
 
@@ -149,6 +149,7 @@ AC_ARG_ENABLE(static,
 
 if test x"$STATIC" = x"yes"; then
 	CFLAGS="-static ${CFLAGS}"
+	LIBS="${LIBS} -lpthread"
 fi
 
 AC_ARG_ENABLE(dist,
