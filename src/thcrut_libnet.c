@@ -14,23 +14,8 @@ init_libnet(char *device, uint32_t *ip)
 	libnet_t *ln_ctx;
 
 	err_buf[0] = 0;
-#if 0
-	if ((device == NULL) || (*device == NULL))
-	{
-		struct sockaddr_in sin;
-
-		if (libnet_select_device(&sin, &mydev, err_buf) == -1)
-			libnet_error(LIBNET_ERR_FATAL, "libnet_select_device: %s\n", err_buf);
-	} else {
-		mydev = *device;
-	}
-
-	if (strcmp(mydev, "any") == 0)
-		return NULL;
-#endif
 
 	ln_ctx = libnet_init(LIBNET_LINK_ADV, device, err_buf);
-	//network = libnet_open_link_interface(mydev, err_buf);
 	if (!ln_ctx)
 		ERREXIT("libnet_init(): %s\n", err_buf);
 
@@ -41,7 +26,7 @@ init_libnet(char *device, uint32_t *ip)
 		if (*ip == 0)
 			*ip = libnet_get_ipaddr4(ln_ctx);
 		if (*ip)
-			fprintf(stderr, "thcrut: using source ip %s\n", int_ntoa(*ip));
+			fprintf(stderr, "thc-rut: using source ip %s\n", int_ntoa(*ip));
 	}
 #endif
 

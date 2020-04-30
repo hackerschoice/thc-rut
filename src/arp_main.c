@@ -45,7 +45,7 @@ static void
 init_vars(void)
 {
 
-	opt.ip_socket = init_pcap(opt.device, 1, "arp[6:2] = 2", &opt.net, &opt.bcast, &opt.dlt_len);
+	opt.ip_socket = init_pcap(&opt.device, 1, "arp[6:2] = 2", &opt.net, &opt.bcast, &opt.dlt_len);
 
 	opt.ln_ctx = init_libnet(opt.device, &opt.src_ip);
 	/*
@@ -99,6 +99,9 @@ do_getopt(int argc, char *argv[])
 			opt.hosts_parallel = atoi(optarg);
 			break;
 		case 'm':
+#ifdef __APPLE__
+                        fprintf(stderr, "WARNING: MAC spoofing not working on macOS\n");
+#endif
 			macstr2mac(srcmac, optarg);
 			opt.flags |= FL_OPT_SPOOFMAC;
 			break;
@@ -184,7 +187,7 @@ arp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 	struct ETH_arp *arp = (struct ETH_arp *)(packet + LIBNET_ETH_H);
 	struct _state *state;
 	long l;
-	char *ptr;
+	const char *ptr;
 
 	if (p->caplen < LIBNET_ETH_H + sizeof *arp)
 		return;
@@ -193,15 +196,12 @@ arp_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 	if (!(state = STATE_by_ip(&opt.sq, l)))
 		return;
 
-	ptr = mac2vendor(arp->ar_sha);
+	ptr = MacVendor_by_mac(arp->ar_sha);
 	/*
 	 * 16 bytes for IP, 1 byte for space, 17 for mac + 1 space = 35
 	 * 80 - 35 = 45.
 	 */
-	if (!ptr)
-		printf("%-16s %.45s\n", int_ntoa(l), val2mac(arp->ar_sha));
-	else
-		printf("%-16s %s %.45s\n", int_ntoa(l), val2mac(arp->ar_sha), ptr);
+	printf("%-16s %s %.45s\n", int_ntoa(l), val2mac(arp->ar_sha), ptr);
 
 	STATE_reset(state);
 }

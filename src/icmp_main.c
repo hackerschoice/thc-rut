@@ -51,7 +51,7 @@ init_defaults(void)
 static void
 init_vars(void)
 {
-	opt.ip_socket = init_pcap(opt.device, 1, "icmp", &opt.net, &opt.bcast, &opt.dlt_len);
+	opt.ip_socket = init_pcap(&opt.device, 1, "icmp", &opt.net, &opt.bcast, &opt.dlt_len);
 
 	opt.ln_ctx = net_sock_raw();
 	if (opt.ln_ctx == NULL)

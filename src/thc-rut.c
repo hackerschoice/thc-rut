@@ -314,6 +314,7 @@ getmy_range(void)
 
         snprintf(buf1, sizeof buf1, "%s", int_ntoa(htonl(opt.net + 1)));
         snprintf(opt.myrange, sizeof opt.myrange, "%s-%s", buf1, int_ntoa(htonl(opt.bcast - 1)));
+	fprintf(stderr, "thc-rut: using range %s\n", opt.myrange);
 
         return opt.myrange;
 }

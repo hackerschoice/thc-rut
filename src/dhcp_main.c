@@ -120,7 +120,7 @@ do_dhcp(uint32_t dstip)
 static void
 init_vars(void)
 {
-	opt.ip_socket = init_pcap(opt.device, 1, "udp and dst port 68", NULL, NULL, &opt.dlt_len);
+	opt.ip_socket = init_pcap(&opt.device, 1, "udp and dst port 68", NULL, NULL, &opt.dlt_len);
 	opt.ln_ctx = init_libnet(opt.device, &opt.src_ip);
 
 	struct libnet_ether_addr *hw;
@@ -168,9 +168,7 @@ usage(void)
 static void
 init_defaults(void)
 {
-	//MAC_gen_pseudo(srcmac);
 	opt.dst_ip = -1;  /* 255.255.255.255 */
-	//opt.src_ip = 0;   /* 0.0.0.0 */
 	init_dhcpset(&ds, dsbuf, DHCP_MIN_OPT);
 	if (opt.hosts_parallel == 0)
 		opt.hosts_parallel = DFL_HOSTS_PARALLEL;
@@ -221,6 +219,9 @@ do_getopt(int argc, char *argv[])
 			macstr2mac(opt.dst_mac, optarg);
 			break;
 		case 'm':
+#ifdef __APPLE__
+			fprintf(stderr, "WARNING: MAC spoofing not working on macOS\n");
+#endif
 			opt.flags |= FL_OPT_SPOOFMAC;
 			macstr2mac(srcmac, optarg);
 			if (memcmp(srcmac, ETHZCAST, 6) == 0)

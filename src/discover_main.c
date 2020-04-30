@@ -176,7 +176,7 @@ init_vars(void)
 	/* init pcap */
 	snprintf(buf, sizeof buf, "icmp[4:2] = %u or ((udp or tcp) and (dst port %u or dst port %u or dst port %u))", htons((unsigned short)getpid()), opt.src_port, opt.src_port + 1, opt.src_port + 2);
 	//DEBUGF("Filter: \"%s\"\n", buf);
-	opt.ip_socket = init_pcap(opt.device, 0, buf, &opt.net, &opt.bcast, &opt.dlt_len);
+	opt.ip_socket = init_pcap(&opt.device, 0, buf, &opt.net, &opt.bcast, &opt.dlt_len);
 
 	if (opt.flags & FL_OPT_FP)
 	{
