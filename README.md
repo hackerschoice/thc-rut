@@ -4,7 +4,7 @@ THC "R U There" network discovery tool - faster than most (all?).
 2003 - Original release  
 2020 - Ported to MacOS, FreeBSD, Linux and Libnet-1.3  
 
-Direct Download: 
+Direct Download: [https://github.com/hackerschoice/thc-rut/tree/master/releases/](https://github.com/hackerschoice/thc-rut/tree/master/releases/)
 
 **Install:**
 ```
