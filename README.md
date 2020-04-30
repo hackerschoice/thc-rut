@@ -1,8 +1,18 @@
 # thc-rut
 THC "R U There" network discovery tool - faster than most (all?).
 
-2003 - Original release 
-2020 - Ported to MacOS, FreeBSD, Linux and Libnet-1.3 
+2003 - Original release  
+2020 - Ported to MacOS, FreeBSD, Linux and Libnet-1.3  
+
+Direct Download: 
+
+**Install:**
+```
+$ ./configure --enable-static
+$ make all
+```
+
+**Examples:**
 
 ICMP/Ping all hosts on a Class B network takes **11 seconds**. 
 ```
