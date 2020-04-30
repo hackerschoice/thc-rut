@@ -37,7 +37,7 @@ ARP/Ping all hosts on the local network:
 
 ARP/Ping using a 'ghost' MAC (mac spoofing):
 ```
-# thc-rut arp -m de:ad:be:ef:13:37 10.0.0.0-10.0.255.254
+# thc-rut arp -m de:ad:be:ef:13:37 10.0.0.0-10.0.0.20
 ```
 
 DHCP test requests:
