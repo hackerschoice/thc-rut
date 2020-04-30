@@ -176,25 +176,13 @@ macstr2mac(unsigned char *dst, char *str)
 libnet_t *
 net_sock_raw(void)
 {
+	char err_buf[LIBNET_ERRBUF_SIZE];
 	libnet_t *ln_ctx;
 
-	ln_ctx = libnet_init(LIBNET_RAW4_ADV, NULL, NULL);
+	ln_ctx = libnet_init(LIBNET_RAW4_ADV, NULL, err_buf);
+	if (ln_ctx == NULL)
+		ERREXIT("libnet_init: %s\n", err_buf);
 	return ln_ctx;
-#if 0
-	int sox;
-	int i;
-
-	sox = socket(PF_INET, SOCK_RAW, IPPROTO_RAW);
-	if (sox < 0)
-		return -1;
-	i = 1;
-	setsockopt(sox, IPPROTO_IP, IP_HDRINCL, (int *)&i, sizeof i);
-	i = 10 * 1024 * 1024; /* Limited by system MAX anyway */
-	setsockopt(sox, SOL_SOCKET, SO_SNDBUF, &i, sizeof i);
-	fcntl(sox, F_SETFL, fcntl(sox, F_GETFL, 0) | O_NONBLOCK);
-
-	return sox;
-#endif
 }
 
 /*

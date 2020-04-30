@@ -393,6 +393,7 @@ scanner_main(int argc, char *argv[])
 {
 	struct pcap_stat ps;
 
+	ERREXIT("discover mode has been disabled in 2020 to allow for major rewrite\n");
 	init_defaults();
 	do_getopt(argc, argv);
 	init_vars();

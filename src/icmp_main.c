@@ -51,9 +51,12 @@ init_defaults(void)
 static void
 init_vars(void)
 {
+	DEBUGF("foobar\n");
 	opt.ip_socket = init_pcap(&opt.device, 1, "icmp", &opt.net, &opt.bcast, &opt.dlt_len);
+	DEBUGF("foobar\n");
 
 	opt.ln_ctx = net_sock_raw();
+	DEBUGF("foobar\n");
 	if (opt.ln_ctx == NULL)
 	{
 		fprintf(stderr, "socket: %s\n", strerror(errno));
@@ -435,6 +438,7 @@ icmp_main(int argc, char *argv[])
 	memset(&state, 0, sizeof state);
 	do_getopt(argc, argv, &state);
 	init_vars();
+	DEBUGF("foobar\n");
 
 	/* By default do the local network */
 	if (opt.argc == 0)
