@@ -8,7 +8,7 @@
 
 #include <sys/types.h>
 
-void hexdump(unsigned char *data, size_t len);
+void hexdump(uint8_t *data, size_t len);
 int perlstring(char *dst, int dlen, char *src, int slen);
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t size);

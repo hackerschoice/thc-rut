@@ -17,7 +17,7 @@
 #include <errno.h>
 #include "state.h"
 
-#define STATE_HASH(sq, ip) (ip & (sq)->hash_entry_mask)
+#define STATE_HASH(sq, ip) (ntohl(ip) & (sq)->hash_entry_mask)
 // FIXME: debugging
 //#define STATE_HASH(sq, ip) 0
 
@@ -58,7 +58,7 @@ SQ_init(struct _state_queue *sq, unsigned long nitems, size_t item_size, int fd,
 	gettimeofday(&sq->expect, NULL);
 
 	DEBUGF("entries: %ld\n", sq->n_entries);
-	DEBUGF("item_size: %u\n", sq->item_size);
+	DEBUGF("item_size: %lu\n", sq->item_size);
 	DEBUGF("epoch: %ld usec\n", sq->epoch);
 
 	return sq;
@@ -76,10 +76,10 @@ STATE_deinit(struct _state_queue *sq)
 }
 
 /*
- * IP is in HBO
+ * IP is in NBO
  */
 struct _state *
-STATE_by_ip(struct _state_queue *sq, unsigned int ip)
+STATE_by_ip(struct _state_queue *sq, uint32_t ip)
 {
 	struct _state *state = sq->hash[STATE_HASH(sq, ip)];
 	int i = 0;

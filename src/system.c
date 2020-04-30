@@ -2,6 +2,7 @@
  * $Id: system.c,v 1.1 2003/05/15 12:13:49 skyper Exp $
  */
 
+#include "default.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -62,7 +63,7 @@ perlstring(char *dst, int dlen, char *src, int slen)
 }
 
 void
-hexdump(unsigned char *data, size_t len)
+hexdump(uint8_t *data, size_t len)
 {
         size_t n = 0;
 	int line = 0;

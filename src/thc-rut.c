@@ -85,7 +85,7 @@
 # include <sys/wait.h>
 #endif
 #include <libnet.h>
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "network_raw.h"
 #include "dcd_icmp.h"
 #include "arpg.h"
@@ -136,6 +136,8 @@ init_vars()
 	srcip.addr = 0;
 	srand(time(NULL));   /* PRNG, we only require weak random */
 
+	memcpy(opt.dst_mac, ETHBCAST, sizeof opt.dst_mac);
+
 	signal_parent_init();
 
 	/*
@@ -144,7 +146,8 @@ init_vars()
 	fp = fopen("/proc/sys/net/core/wmem_max", "w+");
 	if (fp)
 	{
-		fgets(buf, sizeof buf, fp);
+		if (fgets(buf, sizeof buf, fp) == NULL)
+			ERREXIT("open(/proc/...wmem_max) = NULL\n");
 		if (atoi(buf) < DFL_WMEM_MAX)
 		{
 			fprintf(stderr, "Setting system wide send buffer limit to %d bytes\n", DFL_WMEM_MAX);
@@ -166,7 +169,8 @@ init_vars()
 	 * (most states timeout after 360).
 	 */
         opt.src_port = (((tv.tv_sec & 0x1ff) << 3)+ (tv.tv_usec & 0x7))*8 + 1024;
-	opt.ip_id = (unsigned short)(getpid() & 0xffff);
+	opt.ip_id = (uint16_t)(getpid() & 0xffff);
+	opt.ic_id = (uint16_t)(getpid() & 0xffff);
 }
 
 void
@@ -199,7 +203,7 @@ usage (int code, char *str)
 
 	fprintf(stderr, 
 "Version: "VERSION"\n"
-"Usage: thcrut [ thcrut-options ] [ command ] [ command-options-and-arguments ]\n"
+"Usage: thc-rut [ options ] [ command ] [ command-options-and-arguments ]\n"
 //[Types] [Options] [[macX[-macY]:]ipA[-ipB]] ...\n"
 "\n"
 "Commands:\n"
@@ -216,13 +220,17 @@ usage (int code, char *str)
 /* NOTE: not all modules support spoofing. */
 " -s <IP>         Source ip of a network device (eth0, eth0:0, ..)\n"
 " -S              Sequential ip range mode [default: spread mode]\n"
+" -F              Infinite Loop. Repeat forever.\n"
 "Use -l 100 on LAN and -l 5000 otherwise.\n"
 "Try thcrut [ command ] -h for command specific options.\n"
 "\n"
 "Example:\n"
-"# thcrut arp 10.0.0.0-10.0.255.254\n"
-"# thcrut discover -h\n"
-"# thcrut discover -O 192.168.0.1-192.168.255.254\n"
+"# thc-rut arp\n"
+"# thc-rut icmp -h\n"
+"# thc-rut icmp -T 151.101.121.1-151.101.121.254\n"
+"# thc-rut dhcp\n"
+"# thc-rut discover -h\n"
+"# thc-rut discover -O 192.168.0.1-192.168.255.254\n"
 	);
 
 	exit(code);
@@ -241,10 +249,13 @@ do_getopt(int argc, char *argv[])
 	opterr = 0; /* Dont yell error's, they are processed by the modules */
 
 	optind = 1;
-	while ((c = getopt (argc, argv, "+Si:s:l:h")) != -1)
+	while ((c = getopt (argc, argv, "+SFi:s:l:h")) != -1)
 	{
 		switch(c)
 		{
+		case 'F':
+			opt.flags |= FL_OPT_INFINITE;
+			break;
 		case 'S':
 			opt.flags &= ~FL_OPT_SPREADMODE;
 			break;
@@ -254,6 +265,7 @@ do_getopt(int argc, char *argv[])
 #if 1
 		case 's':
 			opt.src_ip = inet_addr(optarg);
+			opt.flags |= FL_OPT_SRC_IP_ISSET;
 			break;
 #endif
 		case 'i':
@@ -295,6 +307,17 @@ list_dhcp()
     return 0;
 }
 
+char *
+getmy_range(void)
+{
+        char buf1[64];
+
+        snprintf(buf1, sizeof buf1, "%s", int_ntoa(htonl(opt.net + 1)));
+        snprintf(opt.myrange, sizeof opt.myrange, "%s-%s", buf1, int_ntoa(htonl(opt.bcast - 1)));
+	fprintf(stderr, "thc-rut: using range %s\n", opt.myrange);
+
+        return opt.myrange;
+}
 
 /*
  * Print 1-line status to stderr.

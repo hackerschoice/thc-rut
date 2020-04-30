@@ -4,12 +4,12 @@
  * Timeout handling and dispatcher function for delay slot.
  */
 
+#include "default.h"
 #include <sys/time.h>
 #include <time.h>
 #include <pcap.h>
 #include <libnet.h>
-#include "default.h"
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "state.h"
 #include "range.h"
 #include "thcrut_pcap.h"
@@ -25,11 +25,10 @@
 
 extern struct _opt opt;
 
-//typedef void (*dispatch_func_send_t)(struct _state *, void *user);
-typedef void (*dispatch_func_recv_t)(struct _state_fp *state, struct pcap_pkthdr *p, char *packet);
+typedef void (*dispatch_func_recv_t)(struct _state_fp *state, struct pcap_pkthdr *p, uint8_t *packet);
 
-static void sendudp(struct _state_fp *state, unsigned short port, char *data, size_t len);
-static void sendicmp(struct _state *state, char *data, size_t len);
+static void sendudp(struct _state_fp *state, unsigned short port, uint8_t *data, size_t len);
+static void sendicmp(struct _state *state, uint8_t *data, size_t len);
 static void dis_sendtcp(struct _state *state, unsigned short port);
 static void dis_sendfpI(struct _state_fp *state, void *user);
 static void dis_tcpwrite(struct _state_fp *state);
@@ -38,9 +37,9 @@ static void dis_end(struct _state_fp *state);
 static void dis_end_dis(struct _state_fp *state);
 static void dis_end_fp(struct _state_fp *state);
 static void dis_end_nmapfp(struct _state_fp *state);
-static void dis_recvdummy(struct _state_fp *state, struct pcap_pkthdr *p, char *packet);
-static void dis_recv(struct _state_fp *state, struct pcap_pkthdr *p, char *packet);
-static void dis_recvfpI(struct _state_fp *state, struct pcap_pkthdr *p, char *packet);
+static void dis_recvdummy(struct _state_fp *state, struct pcap_pkthdr *p, uint8_t *packet);
+static void dis_recv(struct _state_fp *state, struct pcap_pkthdr *p, uint8_t *packet);
+static void dis_recvfpI(struct _state_fp *state, struct pcap_pkthdr *p, uint8_t *packet);
 
 static void tcp_open(struct _state_fp *state, unsigned short port);
 static int fp_state_next_switch(struct _state_fp *state);
@@ -73,11 +72,11 @@ void fp_output(char *results);
 #define STATE_TCPREAD		(18)
 
 
-char ip_tcp_sync[40];
-char ip_tcp_fp[60];
-char ip_udp_dcebind[20 + 8 + FP_DCEBIND_LEN];
-char ip_udp_snmp[20 + 8 + FP_SNMP_LEN];
-char ip_icmp_echo[20 + 8];
+uint8_t ip_tcp_sync[20];
+uint8_t ip_tcp_fp[40];
+uint8_t ip_udp_dcebind[8 + FP_DCEBIND_LEN];
+uint8_t ip_udp_snmp[8 + FP_SNMP_LEN];
+uint8_t ip_icmp_echo[8];
 
 unsigned short ip_tcp_sync_chksum;
 unsigned short ip_tcp_fp_chksum;
@@ -99,7 +98,8 @@ static dispatch_func_recv_t dispatch_funcs[] = {
 	dis_recv,   /* STATE_SENDFP_FIRST  */
 	dis_recv};  /* STATE_SENDFP_SECOND */
 
-extern int rawsox;
+//extern libnet_t rawsox;
+static libnet_ptag_t ln_ip;
 
 /*
  * Switch to next FP state for fingerprinting.
@@ -147,7 +147,7 @@ fp_state_exec(struct _state_fp *state)
 	case FP_CAT_UDP:
 		STATE_current(state) = STATE_SENDFP_FIRST;
 		/* FIXME */
-		sendudp(state, opt.fpts.cat[FP_CAT_UDP].tests[state->testnr].port, ip_udp_dcebind, 28 + FP_DCEBIND_LEN);
+		sendudp(state, opt.fpts.cat[FP_CAT_UDP].tests[state->testnr].port, ip_udp_dcebind, 8 + FP_DCEBIND_LEN);
 //		fprintf(stderr, "%s UDP NOT SUPPORTED\n", __func__);
 		break;
 	case FP_CAT_BANNER:
@@ -160,7 +160,7 @@ fp_state_exec(struct _state_fp *state)
 		break;
 	case FP_CAT_SNMP:
 		STATE_current(state) = STATE_SENDFP_FIRST;
-		sendudp(state, opt.fpts.cat[FP_CAT_SNMP].tests[state->testnr].port, ip_udp_snmp, 28 + FP_SNMP_LEN);
+		sendudp(state, opt.fpts.cat[FP_CAT_SNMP].tests[state->testnr].port, ip_udp_snmp, 8 + FP_SNMP_LEN);
 		break;
 	case FP_CAT_NVT:
 		STATE_current(state) = STATE_TCPREAD;
@@ -168,7 +168,7 @@ fp_state_exec(struct _state_fp *state)
 		break;
 	default:
 		fprintf(stderr, "%s: Unknown FP category %d for %s\n", __func__, state->cat, int_ntoa(STATE_ip(state)));
-		hexdump((char *)state, opt.sq.item_size);
+		hexdump((uint8_t *)state, opt.sq.item_size);
 	}
 }
 
@@ -221,7 +221,22 @@ dis_timeout(struct _state *state)
 	 */
 	if (state_dis->slen != 0)
 	{
-		if (net_send(rawsox, state_dis->sbuf, state_dis->slen) != 0)
+		ln_ip = libnet_build_ipv4(
+			state_dis->slen,
+			0,
+			31337,
+			0,
+			128,
+			state_dis->proto,
+			0,
+			opt.src_ip,
+			state_dis->dst_ip,
+			state_dis->sbuf,
+			state_dis->slen,
+			opt.ln_ctx,
+			ln_ip);
+
+		if (net_send(opt.ln_ctx) != 0)
 			state_dis->slen = 0;
 		/* No need to reschedule. We get called again in 1 second */
 
@@ -468,6 +483,7 @@ static void
 dis_end_dis(struct _state_fp *state)
 {
 	struct _binout binout;
+	int ret = 0;
 
 	if (opt.flags & FL_OPT_FP)
 	{
@@ -476,7 +492,9 @@ dis_end_dis(struct _state_fp *state)
 			memset(&binout, 0, sizeof binout);
 			binout.len = htons(sizeof binout);
 			binout.ip = htonl(STATE_ip(state));
-			write(1, &binout, sizeof binout);
+			ret = write(1, &binout, sizeof binout);
+			if (ret < 0)
+				ERREXIT("write(1): %d\n", ret);
 		}
 		fp_state_exec(state);
 	} else {
@@ -573,6 +591,7 @@ dis_tcpread(struct _state_fp *state)
 	ssize_t n;
 	fd_set wfds;
 	struct timeval tv;
+	int ret;
 
 	n = read(state->sox, buf, sizeof buf - 1);
 	if (n == 0)
@@ -626,7 +645,11 @@ dis_tcpread(struct _state_fp *state)
 					 * it.
 					 */
 					if (state->cat == FP_CAT_NVT)
-						write(state->sox, "\r\n", 2);
+					{
+						ret = write(state->sox, "\r\n", 2);
+						if (ret < 0)
+							ERREXIT("write() = %d\n", ret);
+					}
 				}
 			}
 
@@ -672,7 +695,7 @@ dis_tcpread(struct _state_fp *state)
 					state->flags |= STATE_CRLF_SENT;
 					ans[alen++] = '\r';
 					ans[alen++] = '\n';
-					write(state->sox, ans, alen);
+					ret = write(state->sox, ans, alen);
 					return;
 				}
 
@@ -680,7 +703,7 @@ dis_tcpread(struct _state_fp *state)
 				 * NVT Negotiation. Try read again in 1 second.
 				 * The might come more..
 				 */
-				write(state->sox, ans, alen);
+				ret = write(state->sox, ans, alen);
 
 				/*
 				 * But if we already received some data
@@ -743,35 +766,80 @@ end:
 		dis_end_fp(state);
 }
 
+#if 0
 #define FILLSBUF(state, data, len) do { \
 	memcpy(((struct _state_dis *)(state))->sbuf, data, len); \
 	((struct _state_dis *)(state))->slen = len; \
 } while (0)
+#endif
+#define FILLSBUF(state, xip, xproto, data, len) do { \
+	memcpy(((struct _state_dis *)(state))->sbuf, data, len); \
+	((struct _state_dis *)(state))->dst_ip = xip; \
+	((struct _state_dis *)(state))->proto = xproto; \
+} while (0)
 
 static void
-sendicmp(struct _state *state, char *data, size_t len)
+sendicmp(struct _state *state, uint8_t *data, size_t len)
 {
+#if 0
 	struct ip *ip = (struct ip *)(data);
 	
 	ip->ip_dst.s_addr = htonl(STATE_ip(state));
 	libnet_do_checksum(data, IPPROTO_ICMP, len - LIBNET_IP_H);
-	if (net_send(rawsox, data, len) == 0)
-		FILLSBUF(state, data, len);
+#endif
+
+	uint32_t dst_ip = STATE_ip(state);
+
+	ln_ip = libnet_build_ipv4(
+		len,
+		0,
+		31337,
+		0,
+		128,
+		IPPROTO_ICMP,
+		0,
+		opt.src_ip,
+		dst_ip,
+		data,
+		len,
+		opt.ln_ctx,
+		ln_ip);
+
+	if (net_send(opt.ln_ctx) == 0)
+		FILLSBUF(state, dst_ip, IPPROTO_ICMP, data, len);
 }
 
 /*
  * Send an empty UDP packet to this port.
  */
 static void
-sendudp(struct _state_fp *state, unsigned short port, char *data, size_t len)
+sendudp(struct _state_fp *state, unsigned short port, uint8_t *data, size_t len)
 {
-	struct ip *ip = (struct ip *)(data);
-	struct udphdr *udp = (struct udphdr *)(data + 20);
+	uint16_t *dport;
 
-	udp->uh_dport = htons(port);
-	ip->ip_dst.s_addr = htonl(STATE_ip(state));
-	if (net_send(rawsox, data, len) == 0)
-		FILLSBUF(state, data, len);
+	/* Set DST port */
+	dport = (uint16_t *)(data + 2);
+	*dport = htons(port);
+
+	uint32_t dst_ip = STATE_ip(state);
+
+	ln_ip = libnet_build_ipv4(
+		len,
+		0,
+		31337,
+		0,
+		128,
+		IPPROTO_UDP,
+		0,
+		opt.src_ip,
+		dst_ip,
+		data,
+		len,
+		opt.ln_ctx,
+		ln_ip);
+
+	if (net_send(opt.ln_ctx) == 0)
+		FILLSBUF(state, dst_ip, IPPROTO_UDP, data, len);
 }
 
 /*
@@ -780,26 +848,46 @@ sendudp(struct _state_fp *state, unsigned short port, char *data, size_t len)
 static void
 dis_sendtcp(struct _state *state, unsigned short port)
 {
-	struct tcphdr *tcp = (struct tcphdr *)(ip_tcp_sync + 20);
-	struct ip *ip = (struct ip *)(ip_tcp_sync);
-	int src_ip;
+	uint16_t *dport = (uint16_t *)(ip_tcp_sync + 2);
+	//struct tcphdr *tcp = (struct tcphdr *)(ip_tcp_sync);
+	//struct ip *ip = (struct ip *)(ip_tcp_sync);
+	//int src_ip;
+	uint32_t dst_ip = STATE_ip(state);
 
+	*dport = htons(port);
 	/* src and dst ip must be set for checksum calculation! */
 	/* We must set src ip on packet generation (scanner_gen_packets) */
-	tcp->th_dport = htons(port);
-	ip->ip_dst.s_addr = htonl(STATE_ip(state));
+	//tcp->th_dport = htons(port);
+	//ip->ip_dst.s_addr = htonl(STATE_ip(state));
 	/* The src IP is always set except we use the 'any' device in
 	 * which case we have to recalculate it for any packet we send
 	 * out.
 	 */
+#if 0
 	src_ip = ip->ip_src.s_addr;
 	if (src_ip == 0)
 		ip->ip_src.s_addr = getmyip_by_dst(ip->ip_dst.s_addr);
+#endif
+	ln_ip = libnet_build_ipv4(
+		20,
+		0,
+		31337,
+		0,
+		128,
+		IPPROTO_TCP,
+		0,
+		opt.src_ip,
+		dst_ip,
+		ip_tcp_sync,
+		20,
+		opt.ln_ctx,
+		ln_ip);
 
-	libnet_do_checksum(ip_tcp_sync, IPPROTO_TCP, LIBNET_TCP_H);
-	if (net_send(rawsox, ip_tcp_sync, 40) == 0)
-		FILLSBUF(state, ip_tcp_sync, 40);
-	ip->ip_src.s_addr = src_ip;  /* Set to 0 again */
+	//libnet_do_checksum(ip_tcp_sync, IPPROTO_TCP, LIBNET_TCP_H);
+	if (net_send(opt.ln_ctx) == 0)
+		FILLSBUF(state, dst_ip, IPPROTO_TCP, ip_tcp_sync, 20);
+
+	//ip->ip_src.s_addr = src_ip;  /* Set to 0 again */
 }
 
 /*
@@ -811,8 +899,9 @@ dis_sendtcp(struct _state *state, unsigned short port)
 static void
 dis_sendfpI(struct _state_fp *state, void *user_not_used)
 {
-	struct ip *ip = (struct ip *)ip_tcp_fp;
-	struct tcphdr *tcp = (struct tcphdr *)(ip_tcp_fp + 20);
+	//struct ip *ip = (struct ip *)ip_tcp_fp;
+	uint16_t *dport = (uint16_t *)(ip_tcp_fp + 2);
+	//struct tcphdr *tcp = (struct tcphdr *)(ip_tcp_fp + 20);
 
 	//DEBUGF("%s Starting NMAP OS FP on port %d, %s\n", int_ntoa(STATE_ip(state)), state->port, state->flags & STATE_FOUND_OPEN_PORT?"FOUND":"SEARCHING");
 	/*
@@ -868,11 +957,28 @@ dis_sendfpI(struct _state_fp *state, void *user_not_used)
 	else
 		STATE_current(state) = STATE_SENDFPII;
 
-	ip->ip_dst.s_addr = htonl(STATE_ip(state));
-	tcp->th_dport = htons(state->port);
-	libnet_do_checksum(ip_tcp_fp, IPPROTO_TCP, LIBNET_TCP_H + NMAP_FP_TONE_LEN);
-	if (net_send(rawsox, ip_tcp_fp, 60) == 0)
-		FILLSBUF(state, ip_tcp_fp, 60);
+	uint32_t dst_ip = STATE_ip(state);
+
+	ln_ip = libnet_build_ipv4(
+		state->slen,
+		0,
+		31337,
+		0,
+		128,
+		IPPROTO_TCP,
+		0,
+		opt.src_ip,
+		dst_ip,
+		ip_tcp_fp,
+		sizeof ip_tcp_fp,
+		opt.ln_ctx,
+		ln_ip);
+
+	//ip->ip_dst.s_addr = htonl(dst_ip);
+	*dport = htons(state->port);
+	//libnet_do_checksum(ip_tcp_fp, IPPROTO_TCP, LIBNET_TCP_H + NMAP_FP_TONE_LEN);
+	if (net_send(opt.ln_ctx) == 0)
+		FILLSBUF(state, dst_ip, IPPROTO_TCP, ip_tcp_fp, 40);
 }
 
 /*
@@ -1161,6 +1267,7 @@ dis_end(struct _state_fp *state)
 	char buf[1024];
 	struct _binout *binout = (struct _binout *)buf;
 	size_t len;
+	int ret;
 
 	/*
 	 * Later on we first check port state FP and
@@ -1193,7 +1300,9 @@ dis_end(struct _state_fp *state)
 				binout->ip = l;
 				binout->class = htonl(class);
 				binout->len = htons(len);
-				write(1, binout, len);
+				ret = write(1, binout, len);
+				if (ret < 0)
+					ERREXIT("write() = %d\n", ret);
 			}
 			/* Otherwise (if no PTR string found) did we already
 			 * output this host after discovery
@@ -1241,7 +1350,7 @@ dis_end(struct _state_fp *state)
 	} else if (opt.flags & FL_OPT_HOSTDISCOVERY) {
 		if (opt.flags & FL_OPT_BINOUT)
 		{
-			write(1, &l, 4);
+			ret = write(1, &l, 4);
 		} else {
 			printf("Host: %s\n", int_ntoa(l));
 		}
@@ -1265,7 +1374,7 @@ dis_end(struct _state_fp *state)
  * but it's still looked up by pcap thread.
  */
 static void
-dis_recvdummy(struct _state_fp *state, struct pcap_pkthdr *p, char *packet)
+dis_recvdummy(struct _state_fp *state, struct pcap_pkthdr *p, uint8_t *packet)
 {
 }
 
@@ -1277,7 +1386,7 @@ dis_recvdummy(struct _state_fp *state, struct pcap_pkthdr *p, char *packet)
  * Save open tcp port here if found one.
  */
 static void
-dis_recv(struct _state_fp *state, struct pcap_pkthdr *p, char *packet)
+dis_recv(struct _state_fp *state, struct pcap_pkthdr *p, uint8_t *packet)
 {
 	char buf[256];
 	size_t len;
@@ -1286,8 +1395,8 @@ dis_recv(struct _state_fp *state, struct pcap_pkthdr *p, char *packet)
 	struct udphdr *udp;
 	unsigned short options;
 	char *ptr;
-	char *udp_data;
-	char *udp_end;
+	uint8_t *udp_data;
+	uint8_t *udp_end;
 	unsigned char asn_type;
 
 	PACKET_ALIGN(buf, len, 40, sizeof buf, p, packet);
@@ -1333,7 +1442,7 @@ dis_recv(struct _state_fp *state, struct pcap_pkthdr *p, char *packet)
 			ptr = FP_TEST_UDP_PTR(&opt.fpts, state->results);
 			BF2_SET(ptr, state->testnr, FP_TEST_OPEN);
 		} else if (state->cat == FP_CAT_SNMP) {
-			udp_data = (char *)udp + 8;
+			udp_data = (uint8_t *)udp + 8;
 			udp_end = udp_data + len - 20 - options - 8;
 			/* VERSION */
 			if (!(len = ASN_next(&udp_data, udp_end - udp_data, &asn_type)))
@@ -1393,7 +1502,7 @@ endfp:
  * Received FP information.
  */
 static void
-dis_recvfpI(struct _state_fp *state, struct pcap_pkthdr *p, char *packet)
+dis_recvfpI(struct _state_fp *state, struct pcap_pkthdr *p, uint8_t *packet)
 {
 	char buf[60];
 	size_t len;
@@ -1463,7 +1572,7 @@ scanner_filter(unsigned char *u, struct pcap_pkthdr *p, unsigned char *packet)
 		return;
 
 	memcpy(&l, packet + opt.dlt_len + 12, 4);
-	if (!(state = STATE_by_ip(&opt.sq, ntohl(l))))
+	if (!(state = STATE_by_ip(&opt.sq, l)))
 		return;
 
 	state->reschedule = 0;

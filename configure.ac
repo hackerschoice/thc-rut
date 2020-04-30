@@ -1,30 +1,25 @@
 dnl THCRUT configure.in, anonymous@segfault.net
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(src/thcrut.c)
-VER=`cat ${srcdir}/VERSION`
-AC_MSG_RESULT(Begining autoconfiguration process for thcrut-$VER...)
-
+AC_PREREQ(2.61)
+AC_INIT([thc-rut], 2.2.6)
 AC_CONFIG_AUX_DIR(config)
 AC_CANONICAL_SYSTEM
 
 dnl we use automake
-AM_INIT_AUTOMAKE(thcrut, $VER)
+AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER(config.h)
 dnl for --enable-maintainer-mode fun use:
 dnl AM_MAINTAINER_MODE 
-dnl we use automake anyway...no need for AC_CONFIG_HEADER
-dnl AC_CONFIG_HEADER(config.h)
 
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_RANLIB
-AC_C_CONST
 dnl
 dnl Use these compiler flags if we have gcc.
 dnl
 if test $ac_cv_prog_gcc = yes; then
-  CCOPTS='-O2 -Wall'
+  CCOPTS='-O2 -Wall -g'
   CFLAGS="$CCOPTS"
 fi
 test "x$prefix" != "xNONE" || prefix="/usr/local"
@@ -47,7 +42,11 @@ for xincdir in $trydir_i ; do
 	if test ! -d "$xincdir" ; then
 		continue;
 	fi
-	INCLUDES="$INCLUDES -I${xincdir}";
+	if test x"${INCLUDES}" = x; then
+		INCLUDES="-I${xincdir}";
+	else
+		INCLUDES="$INCLUDES -I${xincdir}";
+	fi
 done
 CPPFLAGS="${INCLUDES} $CPPFLAGS"
 
@@ -62,7 +61,11 @@ for xlibdir in $trydir_l ; do
 	if test ! -d "$xlibdir" ; then
 		continue;
 	fi
-	LIBDIR="$LIBDIR -L${xlibdir}";
+	if test x"${LIBDIR}" = x; then
+		LIBDIR="-L${xlibdir}";
+	else
+		LIBDIR="$LIBDIR -L${xlibdir}";
+	fi
 done
 LDFLAGS="${LIBDIR} $LDFLAGS"
 
@@ -82,11 +85,11 @@ case "$target_os" in
 esac
 
 dnl Checks for libraries.
-dnl Replace `main' with a function in -libs:
-dnl AC_CHECK_LIB(ibs, main)
-dnl Replace `main' with a function in -lpcap:
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(nsl, gethostbyname)
+AC_CHECK_LIB([net], [libnet_name_resolve], [AC_MSG_ERROR([libnet 1.0.x found. Requires libnet 1.1 or newer])])
+AC_CHECK_LIB([net], [libnet_init], ,[AC_MSG_ERROR([libnet 1.1.x not found])])
+
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -113,14 +116,11 @@ dnl yell a warning everytime. Guys, introduce AC_C_BIGENDIAN_CROSS for
 dnl gods sake!
 dnl AC_C_BIGENDIAN
 
-AC_CHECK_FUNCS(gettimeofday memcpy strchr)
+AC_CHECK_FUNCS(gettimeofday memcpy strchr strlcpy)
 dnl FIXME: repair this later
 dnl SNPRINTF=''
 dnl AC_CHECK_FUNC(snprintf, AC_DEFINE(HAVE_SNPRINTF), SNPRINTF='snprintf.o')
 dnl AC_SUBST(SNPRINTF)
-
-AC_MSG_CHECKING(whether the NSA is spying on you)
-AC_MSG_RESULT(["err, why not"])
 
 AC_MSG_CHECKING(whether to enable leeto mode)
 AC_ARG_ENABLE(leeto, 
@@ -142,6 +142,15 @@ AC_ARG_ENABLE(debug,
 	AC_DEFINE(DEBUG, 1, [Debug infos])
 )
 
+AC_ARG_ENABLE(static,
+[  --enable-static          Compile static binary],
+        [STATIC="yes"], [STATIC="no"]
+)
+
+if test x"$STATIC" = x"yes"; then
+	CFLAGS="-static ${CFLAGS}"
+fi
+
 AC_ARG_ENABLE(dist,
 [  --enable-dist           Enable distribution mode, Use own libraries.],
 	[DIST="yes"], [DIST="no"]
@@ -150,37 +159,21 @@ AC_ARG_ENABLE(dist,
 AC_CHECK_LIB(pcap, pcap_open_live,, AC_MSG_ERROR(We need libpcap.
 Get libpcap from http://www.tcpdump.org or try --with-[[libs,includes]]=DIR))
 
-dnl libnet_init_packet only available in < libnet-1.1.x
-dnl AC_CHECK_LIB(net, libnet_init_packet,, AC_MSG_ERROR(We need libnet.
-dnl Get libnet from http://www.packetfactory.net or try --with-[[libs,includes]]=DIR))
-AC_CHECK_LIB(net, libnet_init_packet, [NET=yes], [NET=no])
-if test x"$NET" = x"no" -o x"$DIST" = x"yes"; then
-	AC_CONFIG_SUBDIRS(Libnet-1.0.2a)
-	THCRUT_SUBDIRS="$THCRUT_SUBDIRS Libnet-1.0.2a"
-	CPPFLAGS="-I../Libnet-1.0.2a/include ${CPPFLAGS}"
-	LDFLAGS="-L../Libnet-1.0.2a/src ${LDFLAGS}"
-	PRG_LIBNET_CONFIG_CFLAGS="../Libnet-1.0.2a/libnet-config --cflags --defines | tr '\n' ' '"
-	PRG_LIBNET_CONFIG_LIBS="../Libnet-1.0.2a/libnet-config --libs"
-	dnl CFLAGS="`${srcdir}/Libnet-1.0.2a/libnet-config --cflags --defines | tr '\n' ' '` $CFLAGS"
-	dnl LIBS="`${srcdir}/Libnet-1.0.2a/libnet-config --libs` $LIBS"
-else
-	CFLAGS="`libnet-config --cflags --defines | tr '\n' ' '` $CFLAGS"
-	LIBS="`libnet-config --libs` $LIBS"
-fi
+AC_CHECK_LIB(pcre, pcre_compile,, AC_MSG_ERROR(We need libpcre.))
 
-AC_CHECK_LIB(pcre, pcre_compile, [PCRE=yes], [PCRE=no])
-if test x"$PCRE" = x"no" -o x"$DIST" = x"yes"; then
-	AC_CONFIG_SUBDIRS(pcre-3.9)
-	THCRUT_SUBDIRS="$THCRUT_SUBDIRS pcre-3.9"
-	CPPFLAGS="-I../pcre-3.9 ${CPPFLAGS}"
-	LDFLAGS="-L../pcre-3.9 ${LDFLAGS}"
-	PRG_PCRE_CONFIG_CFLAGS="../pcre-3.9/pcre-config --cflags"
-	PRG_PCRE_CONFIG_LIBS="../pcre-3.9/pcre-config --libs"
-else
-	dnl Into CFLAGS and not CPPFLAGS because it's --cflags
-	CFLAGS="`pcre-config --cflags` $CFLAGS"
-	LIBS="`pcre-config --libs` $LIBS"
-fi
+dnl AC_CHECK_LIB(pcre, pcre_compile, [PCRE=yes], [PCRE=no])
+dnl if test x"$PCRE" = x"no" -o x"$DIST" = x"yes"; then
+dnl	AC_CONFIG_SUBDIRS(pcre-3.9)
+dnl	THCRUT_SUBDIRS="$THCRUT_SUBDIRS pcre-3.9"
+dnl	CPPFLAGS="-I../pcre-3.9 ${CPPFLAGS}"
+dnl	LDFLAGS="-L../pcre-3.9 ${LDFLAGS}"
+dnl	PRG_PCRE_CONFIG_CFLAGS="../pcre-3.9/pcre-config --cflags"
+dnl	PRG_PCRE_CONFIG_LIBS="../pcre-3.9/pcre-config --libs"
+dnl else
+dnl 	dnl Into CFLAGS and not CPPFLAGS because it's --cflags
+dnl	CFLAGS="`pcre-config --cflags` $CFLAGS"
+dnl	LIBS="`pcre-config --libs` $LIBS"
+dnl fi
 
 dnl config/Makefile required for 'make dist'
 B=`eval echo ${bindir}` ; B=`eval echo ${B}`
@@ -191,26 +184,26 @@ AC_DEFINE_UNQUOTED(THCRUT_DATADIR, "${THCRUT_DATADIR}", [share/thcrut])
 dnl disable NMAP until we have it inside thcrut-os-fingerprints file.
 dnl AC_DEFINE(WITH_NMAPFP, 1, [def])
 
-AC_SUBST(THCRUT_SUBDIRS)
+#AC_SUBST(THCRUT_SUBDIRS)
 AC_SUBST(PRG_PCRE_CONFIG_CFLAGS)
 AC_SUBST(PRG_PCRE_CONFIG_LIBS)
-AC_SUBST(PRG_LIBNET_CONFIG_CFLAGS)
-AC_SUBST(PRG_LIBNET_CONFIG_LIBS)
 AC_OUTPUT(Makefile src/Makefile)
 
 dnl Just to show the correct values...
-CFLAGS="`${srcdir}/pcre-3.9/pcre-config --cflags` `${srcdir}/Libnet-1.0.2a/libnet-config --cflags --defines | tr '\n' ' '` $CFLAGS"
-LIBS="`${srcdir}/pcre-3.9/pcre-config --libs` `${srcdir}/Libnet-1.0.2a/libnet-config --libs` $LIBS"
+dnl CFLAGS="`${srcdir}/pcre-3.9/pcre-config --cflags` $CFLAGS"
+dnl LIBS="`${srcdir}/pcre-3.9/pcre-config --libs` $LIBS"
 
-echo "THCrut has been configured with the following options:"
-echo "                 User binaries: $B"
-echo "                Data directory: $THCRUT_DATADIR"
-echo ""
-echo "              Host: ${host}"
-echo "          Compiler: ${CC}"
-echo "    Compiler flags: ${CFLAGS}"
-echo "Preprocessor flags: ${CPPFLAGS}"
-echo "      Linker flags: ${LDFLAGS}"
-echo "         Libraries: ${LIBS}"
+echo "
+THCrut has been configured with the following options:
+                 User binaries: $B
+                Data directory: $THCRUT_DATADIR
+
+              Host: ${host}
+          Compiler: ${CC}
+    Compiler flags: ${CFLAGS}
+Preprocessor flags: ${CPPFLAGS}
+      Linker flags: ${LDFLAGS}
+         Libraries: ${LIBS}"
 cat ${srcdir}/thcrutlogo.txt
-echo "Configuration complete. Now type: make all install; thcrut -h"
+echo "Configuration complete. Now type: make all install; thc-rut -h"
+

@@ -24,15 +24,14 @@ if test "$DIE" -eq 1; then
 fi
 
 echo Removing old files...
-rm -f configure Makefile Makefile.in src/Makefile src/Makefile.in config.h config.status aclocal.m4 config.cache config.log
+rm -f stamp-h1 configure Makefile Makefile.in src/Makefile src/Makefile.in config.h config.status aclocal.m4 config.cache config.log
+[ -d "config" ] &&  rm -rf config
+[ -d "autom4te.cache" ] &&  rm -rf autom4te.cache
+mkdir config
 
-cd pcre-3.9
-./bootstrap
-cd ..
-
-cd Libnet-1.0.2a
-./bootstrap
-cd ..
+#cd pcre-3.9
+#./bootstrap
+#cd ..
 
 echo "aclocal -I ."
 aclocal -I . 

@@ -11,6 +11,9 @@
 #endif
 
 int getmyip_by_dst(int dst);
-void MAC_gen_pseudo(char *buf);
+void MAC_gen_pseudo(uint8_t *buf);
+#ifndef int_ntoa
+const char *int_ntoa(uint32_t ip);
+#endif
 
 #endif

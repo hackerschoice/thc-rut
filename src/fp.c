@@ -470,13 +470,13 @@ next:
 			if (!fpt->pattern)
 			{
 				fprintf(stderr, "string: \"%s\"\n", val);
-				fprintf(stderr, "%d: parse error in regex at %d: %s\n", n_line, errptr, error);
+				fprintf(stderr, "%lu: parse error in regex at %d: %s\n", n_line, errptr, error);
 				exit(-1);
 			}
 			fpt->hints = pcre_study(fpt->pattern, 0, &error);
 			if (error != NULL)
 			{
-				fprintf(stderr, "%d: error in pcre_study: %s\n", n_line, error);
+				fprintf(stderr, "%lu: error in pcre_study: %s\n", n_line, error);
 				exit(-1);
 			}
 			//fpt->str = strdup(val);

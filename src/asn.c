@@ -18,10 +18,10 @@
  * Return 0 on error.
  */
 size_t
-ASN_next(char **data, int len, unsigned char *type)
+ASN_next(uint8_t **data, int len, uint8_t *type)
 {
-	unsigned char *src = *data;
-	unsigned char *end = src + len;
+	uint8_t *src = *data;
+	uint8_t *end = src + len;
 
 	size_t olen;
 

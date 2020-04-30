@@ -75,28 +75,63 @@ dltlen_get(int type)
 
 /*
  * init sniffer (we need this to read arp-requests to our spoofed address
- * FIXME: return a struct here...
  */
 pcap_t *
-init_pcap(char *device, int promisc, char *filter, long *net, long *bcast, int *dltlen)
+init_pcap(char **device, int promisc, char *filter, uint32_t *net, uint32_t *bcast, int *dltlen)
 {
 	struct bpf_program prog;
 	bpf_u_int32 network, netmask;
 	pcap_t *ip_socket;
+	char *dev = NULL;
 
-	/* Fucking pcap developer idiots. They changed the behavior
-	 * of pcap_open_live() to open 'any' interface and not
-	 * the first network interface. This basicly fucked up all code
-	 * which relied on the returned bcast to be the bcast of the local
-	 * network.
-	 */
 	if (!device)
-		if (!(device = pcap_lookupdev(err_buf)))
-			PCAPERREXIT("pcap_lookupdev");
+		return NULL;
+
+	/*
+	 * Find first network interface if user did not specify a device with -i option
+	 */
+	if (*device == NULL)
+	{
+		pcap_if_t *ifcs;
+		if (pcap_findalldevs(&ifcs, err_buf) == -1)
+			PCAPERREXIT("pcap_findalldevs()");
+		if (ifcs == NULL)
+			return NULL;
+		pcap_if_t *ti = ifcs;
+		while (ifcs != NULL)
+		{
+			ti = ifcs;
+			ifcs = ifcs->next;
+			/* Skipt "nflog" and "nfqueue" interfaces */
+			if (memcmp(ti->name, "nf", 2) == 0)
+				continue;
+			/* Skip loopback interface */
+			if (ti->flags & PCAP_IF_LOOPBACK)
+				continue;
+#ifdef PCAP_IF_UPxxx
+			if (!(ti->flags & PCAP_IF_UP))
+				continue;
+#endif
+#ifdef PCAP_IF_RUNNING
+			if (!(ti->flags & PCAP_IF_RUNNING))
+				continue;
+#endif
+			/* Found active interface. */
+			break;
+		}	
+		dev = ti->name;
+	} else {
+		dev = *device;
+	}
+
+	/*
+	 * FIXME: On macOS there could be multiple IP's assigned to the same hw-device.
+	 * This function only returns the first (which often is the last one created).
+	 */
 	if ((net) || (bcast))
 	{
-		if (pcap_lookupnet(device, &network, &netmask, err_buf) < 0)
-			PCAPERREXIT("pcap_lookupnet");
+		if (pcap_lookupnet(dev, &network, &netmask, err_buf) < 0)
+			PCAPERREXIT("pcap_lookupnet(%s)", dev);
 		if (net)
 			*net = ntohl(network);
 		if (bcast)
@@ -109,7 +144,7 @@ init_pcap(char *device, int promisc, char *filter, long *net, long *bcast, int *
 	 * return immediatly anyway.
 	 * We set buffer to 8k, any larger value makes the programm slower.
 	 */
-	ip_socket = pcap_open_live(device, 8192, promisc, 1, err_buf);
+	ip_socket = pcap_open_live(dev, 8192, promisc, 1, err_buf);
 	if (!ip_socket)
 		PCAPERREXIT("pcap_open_live");
 
@@ -125,7 +160,8 @@ init_pcap(char *device, int promisc, char *filter, long *net, long *bcast, int *
 	if (dltlen)
 		*dltlen = dltlen_get(pcap_datalink(ip_socket));
 
-	fprintf(stderr, "thcrut: listening on %s\n", device);
+	*device = strdup(dev);
+	fprintf(stderr, "thc-rut: listening on %s\n", *device);
 
 	return ip_socket;
 }
@@ -151,4 +187,5 @@ thcrut_pcap_stats(pcap_t *p, struct pcap_stat *ps)
 
 	return 0;
 }
+
 

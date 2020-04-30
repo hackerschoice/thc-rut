@@ -1,199 +1,158 @@
+
+//#define DEBUG 1
 #include "default.h"
-#include <ctype.h>
-#include "macvendor.h"
+
+#include "macvlist.h"
+
+#define MACVENDOR_MIN_NELSON	(2)	/* Min distance between top and end for Nelson Search */
 
 /*
- * this is experimental code. we dont HASH atm.
- * FIXME
+ * Return a vendor string or an empty string "" by mac.
  */
-#define HASH_vtag(t1, t2, t3) ((t1+t2+t3)% VTAG_MAX_HASH)
-#define TAG2MYTAG(t) ((t[0]<<8) + (t[1]<<4) + t[2]) 
-
-struct _i_vendorset
+const char *
+MacVendor_by_mac(uint8_t *mac)
 {
-	unsigned long mytag;
-	char *vendor;
-};
+	uint64_t mac_id;
+	char *vendor = "";
 
-static struct _i_vendorset *i_vendorsetptr = NULL;
+	/* Convert 6-byte hw mac address to ID that can be used for lookup */
+	/* ID's for lookup ignore the last byte of the mac address to save space */
+	mac_id = mac[4];
+	mac_id |= (uint64_t)mac[3] << 8;
+	mac_id |= (uint64_t)mac[2] << (8*2);
+	mac_id |= (uint64_t)mac[1] << (8*3);
+	mac_id |= (uint64_t)mac[0] << (8*4);
 
-static char *
-buf2macvendor(char *buf, unsigned char *tag)
-{
-    unsigned short int i1=0,i2=0,i3=0;
-    char *ptr, *ptr2;
+	//DEBUGF("Looking for %llx \n", mac_id);
 
-    if (!isxdigit((int)buf[0]))
-        return NULL; /* skip everything that does not look like a mac */
+	/* Perform a Newton Search */
 
-    if (sscanf(buf, "%hx:%hx:%hx", &i1, &i2, &i3) != 3)
-        return NULL;
-    tag[0] = (unsigned char)i1;
-    tag[1] = (unsigned char)i2;
-    tag[2] = (unsigned char)i3;
-
-    if ( (ptr = strchr(buf, '\t')) == NULL)
-        if ( (ptr = strchr(buf, ' ')) == NULL)
-            return NULL;   /* no \t seperatioin ?! bad...*/
-
-    while ( (*ptr != '\0') && ( (*ptr == '\t') || (*ptr == ' ') ) )
-        ptr++;
-
-    if ( (ptr2 = strchr(ptr, '\n')) != NULL)
-        *ptr2 = '\0';   /* remove the \n from fgets */
-
-    return ptr;
-}
-
-
-/*
- * read in
- * return 0 on success
- * -2, macs/vendor file not found
- * -1 unknown error
- * -3 not enough memory
- * -4 fseek failed
- *
- * We first step through the file and read the vendornamed.
- * We realloc enough memory to hold all the strings in _one_ line.
- * This saves a lot of memory (coz we dont waste 12 extra bytes for
- * every malloced region the libc needs).
- * Next we step through the file again and place all the pointers
- * to our vendor-strings into memories + the tag's (converted to long int's)
- * (we cant do this in one while loop coz there is no guarantee that
- * realloc just enlarges the pointer instead of moving the already allocated
- * memory to another memory range).
- *
- * We need 80% less memory compared to the amount we need when
- * we use linked-list with allocated memory for each i
- * vendor-name + tag-name.
- * And yes..we can do this here..coz its a fixed "list" of vendors.
- * It never changes during execution.
- * Let's implement hash-table for faster lookup sometimes later....
- *
- * FIXME: Use binary tree for lookup. Mac's are sorted in manuf anyway!.
- * FIXME: heheh. this routine is old. Should replace it with a nice one.
- */
-int
-readvendornames(char *file)
-{
-	FILE *fptr = NULL;
-	char buf[256];
-	unsigned char *ptr, *ptr2;
-	unsigned char tag[3];
-	unsigned long vendorlen = 0;
-	unsigned long vendorptrlen = 0;
-	unsigned long vendornum = 0;
-	char *vendorptr = NULL;
-
-	fptr = fopen(file, "r");
-	if (!fptr)
-		return -2;
-
-	/* FIXME: bah. get rid of realloc! */
-	vendornum = 0;
-	while ( fgets(buf, sizeof(buf), fptr) != NULL)
+	uint32_t top_loc = 0;
+	uint32_t end_loc = sizeof macvendorlist / sizeof *macvendorlist - 1;
+	uint64_t top_mid;
+	uint64_t end_mid;
+	uint32_t loc;
+	while (1)
 	{
-		if ( (ptr = buf2macvendor(buf, tag)) == NULL)
-			continue;
+		//DEBUGF("top_loc %d, end_loc %d\n", top_loc, end_loc);
+		if (top_loc >= sizeof macvendorlist / sizeof *macvendorlist - 1)
+			break;
 
-		if ((vendorptrlen - vendorlen) < strlen(ptr)+1)
+		/* Stop if there are just a few locations between top<->end and do sequential search */
+		if (end_loc - top_loc + 1 < MACVENDOR_MIN_NELSON)
 		{
-			if ( (vendorptr = realloc(vendorptr, vendorptrlen + 4096)) == NULL)
-				return -3;
-			vendorptrlen += 4096;
+			//DEBUGF("Narrowed it down to %d locations...\n", end_loc - top_loc + 1);
+			break;
+		}
+		top_mid = macvendorlist[top_loc].macid;
+		end_mid = macvendorlist[end_loc].macid;
+		//DEBUGF("MICS %llx..%llx\n", top_mid, end_mid);
+		if (top_mid > mac_id)
+		{
+			fprintf(stderr, "SHOULD NOT HAPPEN\n");
+			break;
 		}
 
-		ptr2 = ptr;
-		do
+		/* Make a guess where which location our value could be */
+		uint64_t diff = end_mid - top_mid;
+		uint64_t chunk_size = diff / (end_loc - top_loc);
+		loc = (mac_id - top_mid) / chunk_size + top_loc;
+
+		//DEBUGF("I think it's at location %u\n", loc);
+
+		/* Check if we overshot and move end_loc up to our guessed location.
+		 * Our guessed location becomes the new end_loc. Try again on this smaller group.
+		 */
+		if (macvendorlist[loc].macid > mac_id)
 		{
-			if (*ptr2 == '\t')
-				*ptr2 = ' ';
-		} while (*ptr2++ != '\0');
-		memcpy(vendorptr + vendorlen, ptr, strlen(ptr)+1);
-		vendorlen += strlen(ptr)+1;
-		vendornum++;
-	} /* eo only first round to get vendorptr fixed and loaded */
-
-	if (fseek(fptr, 0L, SEEK_SET) != 0)
-		return -4;
-
-	/* one extra for NULL NULL EO set */
-	i_vendorsetptr = malloc(sizeof(*i_vendorsetptr) * (vendornum + 1));
-	vendornum = 0;
-	vendorlen = 0;
-	while ( fgets(buf, sizeof(buf), fptr) != NULL)
-	{
-		if ( (ptr = buf2macvendor(buf, tag)) == NULL)
+			//DEBUGF("Overshot. %llx > %llx\n", macvendorlist[loc].macid, mac_id);
+			end_loc = loc - 1;
+			/* Can we recover from an overshot a bit better? */
+			if (macvendorlist[top_loc + (end_loc - top_loc) / 2].macid < mac_id)
+			{
+				//DEBUGF("Recovering...\n");
+				top_loc = top_loc + (end_loc - top_loc) / 2;
+			}
 			continue;
+		}
 
-		(i_vendorsetptr+vendornum)->mytag = TAG2MYTAG(tag);
-		(i_vendorsetptr+vendornum)->vendor = (char *)(vendorptr + vendorlen);
-
-		vendorlen += strlen(ptr)+1;
-		vendornum++;
-	}
-
-	(i_vendorsetptr+vendornum)->mytag = 0;
-	(i_vendorsetptr+vendornum)->vendor = NULL;
-    
-	fclose(fptr);
-
-	return 0;
-}
-
-/*
- * return name of vendor from mac/tag of with a max of len chars
- * including the terminating \0
- * len = 0 => unlimited original length found in the file.
- * we return NULL if tag not found (is this good ? "" or "<unknown>" 
- * is also kewl....hmm)
- *
- * return in rbuf (if != NULL) or our own internal static
- * variable IF rbuf == NULL!
- * OLD: mac2vendor(char *rbuf, unsigned char *tag, unsigned int len)
- */
-char *
-mac2vendor(unsigned char *tag)
-{
-    struct _i_vendorset *vsptr = i_vendorsetptr;
-    struct _i_vendorset vs;
-//    static char buf[128];
-#if 0
-    char *ptr = rbuf;
-#endif
-
-	if (tag == NULL)    /* craqhead ! N0 T4G == N0 RESULTZ */
-		return NULL;
-	if (vsptr == NULL)
-		return NULL;
-
-#if 0
-    if ((rbuf == NULL) && (len > sizeof(buf)-1))
-        len = sizeof(buf)-1;
-    if (rbuf == NULL)
-        ptr = buf;
-#endif
-
-	vs.mytag = TAG2MYTAG(tag);  /* mytag could be opague */
-
-	while ( (vsptr->vendor != NULL))
-	{
-		if (vs.mytag == vsptr->mytag)
+		/* HERE: mac_id is somewhere between top_loc ... end_loc */
+		/* If the next location has a mac that's larger than ours than the current
+		 * location is the nearest hit.
+		 */
+		if (macvendorlist[loc + 1].macid > mac_id)
+		{
+			//DEBUGF("biggert. %llx > %llx\n", macvendorlist[loc+1].macid, mac_id);
 			break;
-		vsptr++; 
+		}
+		/* Check if we guessed the same location and if so move up by 1...we are near..*/
+		if (top_loc == loc)
+			top_loc = loc + 1;
+		else
+			top_loc = loc;
+
+		/* HERE: Our new chunk to search in... */
+
+		/* Adjust the 'end' if it is far away... */
+		if (macvendorlist[top_loc + (end_loc - top_loc)/2].macid > mac_id)
+			end_loc = top_loc + (end_loc - top_loc)/2;
 	}
 
- 	return vsptr->vendor;
+	/* There can be duplicated in the list such as this one
+	 * 00:1B:C5        IEEERegi        IEEE Registration Authority
+	 * 00:1B:C5:00:00:00/36    Convergi        Converging Systems Inc.
+	 * Check if the next immediately following is a better hit.
+	 * Also doing sequential search here after Nelson search (small chunk left).
+	 */
+	int i;
+	for (i = 0; i < MACVENDOR_MIN_NELSON; i++)
+	{
+		if (loc < sizeof macvendorlist / sizeof *macvendorlist - 1)
+			break;
+		if (macvendorlist[loc+1].macid > mac_id)
+			break;
+		loc++;
+	}
 
-#if 0
-    if (vsptr->vendor == NULL)
-        return NULL;
-
-    strncpy(ptr, vsptr->vendor, len);
-    *(ptr+len-1) = '\0';
-
-    return ptr;
-#endif
+	vendor = macvendorlist[loc].name;
+	//DEBUGF("Vendor: %s\n", vendor);
+	return vendor;
 }
 
+
+#if 0
+int
+main(int argc, char *argv[])
+{
+
+	//MacVendor_by_mac((uint8_t *)"\x00\x00\x01\x00\xab\xcd");
+	MacVendor_by_mac((uint8_t *)"\xFC\xFF\xFF\xaa\xbb\xcc");
+	//MacVendor_by_mac((uint8_t *)"\xF0\xB3\xD5\x67\x41\x11");
+
+	for (int i = 0; i < sizeof macvendorlist / sizeof *macvendorlist - 1; i++)
+	{
+		uint8_t buf[6];
+		uint64_t macid;
+		const char *vendor;
+
+		macid = macvendorlist[i].macid;
+		/* Self test: Ignore duplicated..
+		 */
+		if (macid == macvendorlist[i+1].macid)
+			continue;
+		buf[5] = 0xab;
+		buf[4] = macid >> 0*8;
+		buf[3] = macid >> 1*8;
+		buf[2] = macid >> 2*8;
+		buf[1] = macid >> 3*8;
+		buf[0] = macid >> 4*8;
+		//HEXDUMP(buf, 6);
+
+		vendor = MacVendor_by_mac(buf);
+		if (macvendorlist[i].name != vendor)
+			ERREXIT("NOT FOUND\n");
+
+	}
+	exit(0);
+}
+#endif

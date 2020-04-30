@@ -4,8 +4,10 @@
 #include <sys/types.h>
 /* Conflict on OpenBsd 2.8 & libnet */
 /* #include <netinet/ip_icmp.h> */
-
-#define int_ntoa(x)   inet_ntoa(*((struct in_addr *)&(x)))
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
 
 #ifndef ETH_ALEN
 # define ETH_ALEN	(6)
@@ -18,8 +20,8 @@ int vrfy_icmp(struct icmp *, uint32_t);
 char *int_ntop(char *, struct in_addr);
 char *val2mac(unsigned char *);
 void macstr2mac(unsigned char *dst, char *str);
-int net_sock_raw(void);
-int net_send(int sox, char *data, size_t len);
+libnet_t *net_sock_raw(void);
+size_t net_send(libnet_t *ln_ctx);
 
 #endif /* !THCRUT_NETWORK_RAW_H */
 

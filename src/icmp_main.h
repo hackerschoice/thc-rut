@@ -15,6 +15,7 @@ struct _state_icmp
 #define FL_ST_ECHO      0x01
 #define FL_ST_AMASK     0x02
 #define FL_ST_RSOL      0x04
+#define FL_ST_TREQ	0x08
 
 int icmp_main(int argc, char *argv[]);
 

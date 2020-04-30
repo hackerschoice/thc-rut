@@ -18,6 +18,6 @@
 # define ASN_OCTET_STR		((unsigned char)0x04)
 #endif
 
-size_t ASN_next(char **src, int len, unsigned char *type);
+size_t ASN_next(uint8_t **src, int len, uint8_t *type);
 
 #endif /* !__THCRUT_ASN_H__ */

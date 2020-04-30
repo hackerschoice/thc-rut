@@ -173,9 +173,14 @@ macstr2mac(unsigned char *dst, char *str)
 /*
  * Open an UNBLOCKING RAW socket used for sending.
  */
-int
+libnet_t *
 net_sock_raw(void)
 {
+	libnet_t *ln_ctx;
+
+	ln_ctx = libnet_init(LIBNET_RAW4_ADV, NULL, NULL);
+	return ln_ctx;
+#if 0
 	int sox;
 	int i;
 
@@ -189,6 +194,7 @@ net_sock_raw(void)
 	fcntl(sox, F_SETFL, fcntl(sox, F_GETFL, 0) | O_NONBLOCK);
 
 	return sox;
+#endif
 }
 
 /*
@@ -196,17 +202,20 @@ net_sock_raw(void)
  * This function can exit.
  *
  * Return -1 on error. Return 0 if would_block.
+ * Note: I dont think we ever return 0 here (blocking)...
  */
-int
-net_send(int sox, char *data, size_t len)
+size_t
+net_send(libnet_t *ln_ctx)
 {
+	size_t len;
 #ifdef DEBUG
 	static char full_once;
 #endif
 
-	if (libnet_write_ip(sox, data, len) != len)
+	len = libnet_write(ln_ctx);
+	if (len == -1)
 	{
-#if 0
+#if 1
 		/* No arp reply [local netowrk scan] */
 		if (errno == EHOSTDOWN)
 			return -1;
@@ -251,7 +260,7 @@ net_send(int sox, char *data, size_t len)
 			full_once = 1;
 		}
 #endif
-		return 0;
+		return -1; /* We never 'would block */
 	}
 
 	return len;

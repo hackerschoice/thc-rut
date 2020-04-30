@@ -6,17 +6,9 @@
 #ifndef THCRUT_MACVENDOR_H
 #define THCRUT_MACVENDOR_H 1
 
-#define VTAG_MAX_HASH   255
 
+const char *MacVendor_by_mac(uint8_t *mac);
 
-struct _macvendor
-{
-	unsigned char  tag[3];
-	char    *vendor;
-};
-
-
-int readvendornames(char *);
 char *mac2vendor(unsigned char *tag);
 
 #endif /* !THCRUT_MACVENDOR_H */

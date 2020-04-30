@@ -7,7 +7,7 @@
 #include <pcap.h>
 #include <libnet.h>
 #include "default.h"
-#include "thcrut.h"
+#include "thc-rut.h"
 #include "state.h"
 #include "range.h"
 #include "thcrut_pcap.h"
@@ -20,10 +20,9 @@
 #include "thcrut_libnet.h"
 
 extern struct _opt opt;
-extern char ip_tcp_sync[];
+extern uint8_t ip_tcp_sync[];
 
 struct sockaddr_in ip_tcp_sync_addr;
-int rawsox;
 
 #define DFL_HOSTS_PARALLEL	(5000)
 
@@ -65,7 +64,7 @@ launch(struct _ipranges *ipr)
 
 		if (IP_current(ipr))
 		{
-			STATE_ip(state) = IP_current(ipr);
+			STATE_ip(state) = htonl(IP_current(ipr));
 			ret = STATE_wait(&opt.sq, state);
 		} else
 			ret = STATE_wait(&opt.sq, NULL);
@@ -118,6 +117,7 @@ config_fp_load(char *buf, char *dir)
  * Return 0 if not found/error. (This way will it be set later by
  * the tcp-send-function. This can happen if 'any' device is used).
  */
+#if 0
 static void
 getmyip_by_device(void)
 {
@@ -127,6 +127,7 @@ getmyip_by_device(void)
 	if (network)
 		fini_libnet(network);
 }
+#endif
 
 /*
  * Init vars is called after getopt.
@@ -163,12 +164,9 @@ init_vars(void)
 	//FP_TS_dump(&opt.fpts);
 
 	//rawsox = libnet_open_raw_sock(IPPROTO_RAW);
-	rawsox = net_sock_raw();
-	if (rawsox < 0)
-	{
-		fprintf(stderr, "socket: %s\n", strerror(errno));
-		exit(-1);
-	}
+	opt.ln_ctx = net_sock_raw();
+	if (opt.ln_ctx == NULL)
+		ERREXIT("socket: %s\n", strerror(errno));
 
 	/* FIXME: Filtering is acutually done in userland (on most
 	 * systems. Our own filter might be much faster....
@@ -178,7 +176,7 @@ init_vars(void)
 	/* init pcap */
 	snprintf(buf, sizeof buf, "icmp[4:2] = %u or ((udp or tcp) and (dst port %u or dst port %u or dst port %u))", htons((unsigned short)getpid()), opt.src_port, opt.src_port + 1, opt.src_port + 2);
 	//DEBUGF("Filter: \"%s\"\n", buf);
-	opt.ip_socket = init_pcap(opt.device, 0, buf, &opt.net, &opt.bcast, &opt.dlt_len);
+	opt.ip_socket = init_pcap(&opt.device, 0, buf, &opt.net, &opt.bcast, &opt.dlt_len);
 
 	if (opt.flags & FL_OPT_FP)
 	{
@@ -211,7 +209,7 @@ init_vars(void)
 	 * We need the src ip to calculate the correct TCP checksum.
 	 * This wont work on the 'any' device.
 	 */
-	getmyip_by_device();
+	//getmyip_by_device();
 	scanner_gen_packets();
 
 	//DEBUGF("size %d %d\n", sizeof(struct _state_fp), size);
@@ -349,19 +347,38 @@ sigchld(int sig)
 }
 #endif
 
+static libnet_ptag_t ln_ip;
+int
+testsend(int dst_ip)
+{
+	ln_ip = libnet_build_ipv4(
+		20,
+		0,
+		31337,
+		0,
+		128,
+		IPPROTO_TCP,
+		0,
+		opt.src_ip,
+		dst_ip,
+		ip_tcp_sync,
+		20,
+		opt.ln_ctx,
+		ln_ip);
+		
+	return net_send(opt.ln_ctx);
+}
+
 #if 1
 void
 testme(void)
 {
-	int ret;
-	struct ip *ip = (struct ip *)(ip_tcp_sync);
 	int n = 0;
-
-	ip->ip_dst.s_addr = inet_addr("10.1.23.1");
+	int ret;
 
 	while (n < 100000)
 	{
-		ret = net_send(rawsox, ip_tcp_sync, 40);
+		ret = testsend(inet_addr("10.1.23.1"));
 		n++;
 		if (ret <= 0)
 			break;
@@ -370,15 +387,6 @@ testme(void)
 	exit(0);
 }
 #endif
-void
-testsend(int myip)
-{
-	struct ip *ip = (struct ip *)(ip_tcp_sync);
-	
-	ip->ip_dst.s_addr = htonl(myip);
-	net_send(rawsox, ip_tcp_sync, 40);
-}
-
 
 int
 scanner_main(int argc, char *argv[])

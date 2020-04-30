@@ -14,8 +14,8 @@
 #define MAX_PAYLOAD_SIZE	(1024)
 #define ETHDLTLEN		(14)
 #define PCAP_FILTER 		"arp or icmp or udp"
-#define ETHBCAST		"\xff\xff\xff\xff\xff\xff"
-#define ETHZCAST		"\x00\x00\x00\x00\x00\x00"
+#define ETHBCAST		(uint8_t *)"\xff\xff\xff\xff\xff\xff"
+#define ETHZCAST		(uint8_t *)"\x00\x00\x00\x00\x00\x00"
 
 
 /*
@@ -39,27 +39,30 @@ struct _spfip
 
 struct _opt
 {
+	libnet_t *ln_ctx;
 	pcap_t *ip_socket;
 	int dlt_len;
 	long hosts_parallel; /* how many hosts at the same time */
 	char *device;
-	long net;   /* network address in HBO */
-	long bcast; /* broadcast address in HBO */
-	int src_ip; /* NBO */
+	uint32_t net;   /* network address in HBO */
+	uint32_t bcast; /* broadcast address in HBO */
+	uint32_t src_ip; /* NBO */
 	int dst_ip;
-	unsigned short src_port;
-	unsigned short ip_id;  /* IP id field we sniff for */
+	uint8_t dst_mac[6];
+	uint16_t src_port;
+	uint16_t ip_id;  /* IP id field we sniff for */
+	uint16_t ic_id;  /* ICMP id field we sniff for */
 	char *macrangestr;
 	struct libnet_link_int  *network;
-	unsigned int flags;
+	uint32_t flags;
 	char **argvlist;
 	int argc;
 	pid_t childpid;
 	struct _ipranges ipr;
 	struct _state_queue sq;
-	int rawsox;
 	struct _nmap_osfp osfp;
 	struct _fp_testsuite fpts;
+	char myrange[256];	/* network + 1 .. bcast - 1 */
 };
 #if 0
 #define OPT_RARP            0x01
@@ -71,12 +74,15 @@ struct _opt
 #define OPT_BARP            0x40
 #define OPT_ICMPRS		(0x80)
 #endif
+#define FL_OPT_SRC_IP_ISSET	(0x80)
 #define FL_OPT_HOSTDISCOVERY	(0x100)
 #define FL_OPT_FP		(0x200)
 #define FL_OPT_VERBOSE		(0x400)
 #define FL_OPT_SPOOFMAC		(0x800)
 #define FL_OPT_BINOUT		(0x1000)
 #define FL_OPT_SPREADMODE	(0x2000)
+#define FL_OPT_RANDMAC		(0x4000)
+#define FL_OPT_INFINITE		(0x8000)		/* Infinite Loop */
 
 
 struct _lnet
@@ -116,9 +122,9 @@ struct ETH_arp
 	unsigned char hw_size;
 	unsigned char p_size;
 	short ar_op;
-	char ar_sha[ETH_ALEN];
+	uint8_t ar_sha[ETH_ALEN];
 	char ar_sip[4];
-	char ar_tha[ETH_ALEN];
+	uint8_t ar_tha[ETH_ALEN];
 	char ar_tip[4];
 };
 
@@ -129,6 +135,7 @@ void do_signal(int);
 int handle_ip(u_char *, int);
 int handle_arp(u_char *, int);
 int list_dhcp();
+char *getmy_range(void);
 #if 0
 int init_next_macip(char *str, struct _bmac *bmac, struct _bip *bip, char *defaultmac);
 #endif
