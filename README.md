@@ -16,7 +16,7 @@ $ make all
 
 ICMP/Ping all hosts on a Class B network takes **11 seconds**. 
 ```
-thc-rut icmp -l 25000 192.168.0.1-192.168.255.254
+thc-rut icmp -l 25000 192.168.0.1/16
 ```
 
 ICMP/Ping hosts that are firewalled (using ICMP timestamp requests instead)
