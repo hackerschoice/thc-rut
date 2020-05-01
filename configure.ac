@@ -149,6 +149,7 @@ AC_ARG_ENABLE(static,
 
 if test x"$STATIC" = x"yes"; then
 	CFLAGS="-static ${CFLAGS}"
+	LIBS="${LIBS} -lpthread"
 fi
 
 AC_ARG_ENABLE(dist,
