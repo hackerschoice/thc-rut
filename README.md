@@ -4,7 +4,7 @@ THC "R U There" network discovery tool - faster than most (all?).
 2003 - Original release  
 2020 - Ported to MacOS, FreeBSD, Linux and Libnet-1.3  
 
-Direct Download: 
+Direct Download: [https://github.com/hackerschoice/thc-rut/tree/master/releases/](https://github.com/hackerschoice/thc-rut/tree/master/releases/)
 
 **Install:**
 ```
@@ -16,7 +16,7 @@ $ make all
 
 ICMP/Ping all hosts on a Class B network takes **11 seconds**. 
 ```
-thc-rut icmp -l 25000 192.168.0.1-192.168.255.254
+thc-rut icmp -l 25000 192.168.0.1/16
 ```
 
 ICMP/Ping hosts that are firewalled (using ICMP timestamp requests instead)
@@ -37,7 +37,7 @@ ARP/Ping all hosts on the local network:
 
 ARP/Ping using a 'ghost' MAC (mac spoofing):
 ```
-# thc-rut arp -m de:ad:be:ef:13:37 10.0.0.0-10.0.255.254
+# thc-rut arp -m de:ad:be:ef:13:37 10.0.0.0-10.0.0.20
 ```
 
 DHCP test requests:
